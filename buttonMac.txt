@@ -92,7 +92,7 @@ Public Module Button
                         x = x.Replace("AltText=""", "")
                         x = x.Remove(x.Length - 1)
                         x = x.ToString.TrimStart()
-                        MsgBox(x.ToString.Length)
+                        'MsgBox(x.ToString.Length)
                         If x.ToString.Length > 1 Then
                             keys = x
                             keys = keys.TrimEnd("""")
