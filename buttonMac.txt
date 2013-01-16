@@ -11,7 +11,7 @@ Imports System.Windows.Forms
 Imports System.Globalization
 Imports System.Collections
 Imports System.Resources
-'Change Something'
+
 Public Module Button
 
     Sub LocalizeButton()
@@ -91,13 +91,17 @@ Public Module Button
                         localeTagEnd = """"
                         x = x.Replace("AltText=""", "")
                         x = x.Remove(x.Length - 1)
-                        keys = x.ToString.TrimStart()
-                        keys = keys.TrimEnd("""")
-                        cutCamel = "Alt_" + ToCamelCase(keys)
-                        cutCamel = RemoveNonWordCharacters(cutCamel)
-                        x = x.Replace(x, localeTagStart + cutCamel + localeTagEnd)
-                        eachLine(counter) = x
-                        createKeys(cutCamel, cut, keys, propsFileName, propsWindowName)
+                        x = x.ToString.TrimStart()
+                        MsgBox(x.ToString.Length)
+                        If x.ToString.Length > 1 Then
+                            keys = x
+                            keys = keys.TrimEnd("""")
+                            cutCamel = "Alt_" + ToCamelCase(keys)
+                            cutCamel = RemoveNonWordCharacters(cutCamel)
+                            x = x.Replace(x, localeTagStart + cutCamel + localeTagEnd)
+                            eachLine(counter) = x
+                            createKeys(cutCamel, cut, keys, propsFileName, propsWindowName)
+                        End If
                     End If
                     counter = counter + 1
 
