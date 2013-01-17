@@ -102,6 +102,22 @@ Public Module Button
                             eachLine(counter) = x
                             createKeys(cutCamel, cut, keys, propsFileName, propsWindowName)
                         End If
+
+                    ElseIf x.Contains("TabName=""") Then
+                        index = findNonSpace(x)
+                        localeTagStart = index + "Key="""
+                        localeTagStart += useResourcesKey + "."
+                        localeTagEnd = """"
+                        x = x.Replace("TabName=""", "")
+                        x = x.Remove(x.Length - 1)
+                        keys = x.ToString.TrimStart()
+                        keys = keys.TrimEnd("""")
+                        cutCamel = "Tab_" + ToCamelCase(keys)
+                        cutCamel = RemoveNonWordCharacters(cutCamel)
+                        x = x.Replace(x, localeTagStart + cutCamel + localeTagEnd)
+                        eachLine(counter) = x
+                        createKeys(cutCamel, cut, keys, propsFileName, propsWindowName)
+
                     End If
                     counter = counter + 1
 
@@ -112,16 +128,16 @@ Public Module Button
                 Next
             End If
         Else
-        localeTagStart = "<sw:localize runat=""server"" Label="""
-        localeTagEnd = """ />"
+            localeTagStart = "<sw:localize runat=""server"" Label="""
+            localeTagEnd = """ />"
 
-        resexTagStart = "<data name="""
-        resexTagMid = """ xml:space=""preserve""><value>"
-        resexTagEnd = "</value></data>"
-        Dim currentFile As String = DTE.ActiveDocument.FullName
-        currentFile = currentFile.Substring(0, currentFile.IndexOf("wwwroot\"))
+            resexTagStart = "<data name="""
+            resexTagMid = """ xml:space=""preserve""><value>"
+            resexTagEnd = "</value></data>"
+            Dim currentFile As String = DTE.ActiveDocument.FullName
+            currentFile = currentFile.Substring(0, currentFile.IndexOf("wwwroot\"))
 
-        propsFileName = currentFile + "wwwroot\App_GlobalResources\Resource.resx"
+            propsFileName = currentFile + "wwwroot\App_GlobalResources\Resource.resx"
         End If
 
     End Sub
