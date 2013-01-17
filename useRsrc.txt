@@ -1,0 +1,58 @@
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Collections.Generic
+Imports System.Text.RegularExpressions
+Imports System.Windows.Forms
+Imports System.Globalization
+Imports System.Collections
+Imports System.Resources
+Imports System.IO.Stream
+
+Public Module RSRC
+
+    Sub LocalizeRSRC()
+
+        Dim resexTagStart As String
+        Dim resexTagMid As String
+        Dim resexTagEnd As String
+        Dim files As Object = DTE.ActiveDocument.Name
+        Dim filesStr As Array = files.ToString.Split(".")
+        Dim window As String = DTE.ActiveDocument.Path.Substring(29)
+        Dim strArr As Array = window.Split("\")
+        Dim useRsrcKeyTag As String
+
+        useRsrcKeyTag = "<cf_sw_useResource key = " + strArr(0) + "." + filesStr(0) + ">"
+        DTE.ActiveDocument.Selection.Insert(useRsrcKeyTag)
+
+    End Sub
+
+    Function readResxFile(ByVal filePath As String)
+        Dim result As New List(Of String())
+        Dim reader As New ResXResourceReader(filePath)
+        reader.UseResXDataNodes = True
+
+        Dim en As IDictionaryEnumerator
+        en = reader.GetEnumerator()
+        Dim blank As System.ComponentModel.Design.ITypeResolutionService
+        blank = Nothing
+
+        While en.MoveNext()
+            Dim entry As ResXDataNode = en.Value
+
+            Dim node(2) As String
+            node(0) = en.Key
+            node(1) = entry.GetValue(blank)
+            node(2) = entry.Comment
+            result.Add(node)
+        End While
+
+        Return result
+    End Function
+
+
+End Module
