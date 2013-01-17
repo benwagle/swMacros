@@ -26,7 +26,7 @@ Public Module AddUseRsrc
         Dim strArr As Array = window.Split("\")
         Dim useRsrcKeyTag As String
 
-        useRsrcKeyTag = "<cf_sw_useResource key = " + """" + strArr(0) + "." + filesStr(0) + """>"
+        useRsrcKeyTag = "<cf_sw_UseResource key = " + """" + strArr(0) + "." + filesStr(0) + """>"
         DTE.ActiveDocument.Selection.Insert(useRsrcKeyTag)
 
     End Sub
