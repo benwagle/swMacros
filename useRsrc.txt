@@ -22,9 +22,18 @@ Public Module AddUseRsrc
         Dim resexTagEnd As String
         Dim files As Object = DTE.ActiveDocument.Name
         Dim filesStr As Array = files.ToString.Split(".")
-        Dim window As String = DTE.ActiveDocument.Path.Substring(29)
+        Dim filePathLength As Integer = 29                                                      '"C:\Source\trunk\sw\swchannel\Resources\" --> Length of 29
+        Dim window As String = DTE.ActiveDocument.Path.Substring(filePathLength)
         Dim strArr As Array = window.Split("\")
         Dim useRsrcKeyTag As String
+
+        'Creates .properties file and folder for the generated UseResource key tag
+        Dim dotProperties As String = ".properties"
+        Dim emptyPropsFile As String = "C:\Users\tashrafy\Documents\" + dotProperties
+        Dim destFolder As String = "C:\Source\trunk\sw\swchannel\Resources\" + strArr(0)
+        FileIO.FileSystem.CreateDirectory(destFolder)
+        Dim destPropsPath As String = destFolder + "\" + filesStr(0) + dotProperties
+        FileCopy(emptyPropsFile, destPropsPath)
 
         useRsrcKeyTag = "<cf_sw_UseResource key=" + """" + strArr(0) + "." + filesStr(0) + """>"
         DTE.ActiveDocument.Selection.Insert(useRsrcKeyTag)
