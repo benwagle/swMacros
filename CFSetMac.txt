@@ -112,7 +112,7 @@ Public Module CFSet
         DTE.UndoContext.Open("Localize String")
 
         DTE.ActiveDocument.Selection.Delete()
-        DTE.ActiveDocument.Selection.Insert(splitt(0) + "= " + splitt(1) + ">" + vbCrLf)
+        DTE.ActiveDocument.Selection.Insert(splitt(0) + splitt(1) + ">" + vbCrLf)
         If (Not (keyExisted And valueExisted)) Then
             DTE.Windows.Item(Constants.vsWindowKindSolutionExplorer).Activate()
 
