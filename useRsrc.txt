@@ -29,12 +29,11 @@ Public Module AddUseRsrc
 
         'Creates .properties file and folder for the generated UseResource key tag
         Dim dotProperties As String = ".properties"
-        Dim emptyPropsFile As String = "C:\Users\tashrafy\Documents\" + dotProperties
         Dim destFolder As String = "C:\Source\trunk\sw\swchannel\Resources\" + strArr(0)
         FileIO.FileSystem.CreateDirectory(destFolder)
         Dim destPropsPath As String = destFolder + "\" + filesStr(0) + dotProperties
-        FileCopy(emptyPropsFile, destPropsPath)
 
+        IO.File.Create(destPropsPath)
         useRsrcKeyTag = "<cf_sw_UseResource key=" + """" + strArr(0) + "." + filesStr(0) + """>"
         DTE.ActiveDocument.Selection.Insert(useRsrcKeyTag)
 
