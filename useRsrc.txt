@@ -15,6 +15,9 @@ Imports System.IO.Stream
 
 Public Module AddUseRsrc
 
+    'This macros will create a "<cf_sw_UseResource key=" tag and append the directory name and the properties file name, generated based on the folder name/.cfm file name
+    'After creating the localized tag, it will create the directory (will automatically merge if it already exists) and the .properties file
+
     Sub LocalizeRSRC()
 
         Dim resexTagStart As String
@@ -30,10 +33,17 @@ Public Module AddUseRsrc
         'Creates .properties file and folder for the generated UseResource key tag
         Dim dotProperties As String = ".properties"
         Dim destFolder As String = "C:\Source\trunk\sw\swchannel\Resources\" + strArr(0)
-        FileIO.FileSystem.CreateDirectory(destFolder)
+
+        If Not FileIO.FileSystem.DirectoryExists(destFolder) Then
+            FileIO.FileSystem.CreateDirectory(destFolder)
+        End If
+
         Dim destPropsPath As String = destFolder + "\" + filesStr(0) + dotProperties
 
-        IO.File.Create(destPropsPath)
+        If Not FileIO.FileSystem.FileExists(destPropsPath) Then
+            IO.File.Create(destPropsPath)
+        End If
+
         useRsrcKeyTag = "<cf_sw_UseResource key=" + """" + strArr(0) + "." + filesStr(0) + """>"
         DTE.ActiveDocument.Selection.Insert(useRsrcKeyTag)
 
