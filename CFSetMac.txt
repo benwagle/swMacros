@@ -64,15 +64,17 @@ Public Module CFSet
 
             propsFileName = propsFilePath + useResourcesKey.Replace(".", "\").Trim() + dotProperties
 
-            splitt = cut.Split("=")
+            splitt = cut.Split("""")
             element = splitt(1)
-            element = element.TrimEnd(">")
+            ' element = element.TrimEnd(">")
+            'element = element.Trim(" ")
+            element = element.Trim("""")
 
         End If
 
         cutCamel = ToCamelCase(element)
         cutCamel = RemoveNonWordCharacters(cutCamel)
-        element = element.Trim("""")
+        
         vary = "l" + cutCamel
         splitt(1) = """#" + vary + "#"""
         variable = " variable= """ + vary
