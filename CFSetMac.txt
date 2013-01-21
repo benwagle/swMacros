@@ -125,6 +125,7 @@ Public Module CFSet
 
             If (isCfm) Then
                 DTE.ActiveDocument.Selection.Insert(cutCamel + "=" + element)
+                DTE.ActiveDocument.Save()
                 DTE.ExecuteCommand("Window.NextDocumentWindowNav")
                 DTE.ActiveDocument.Selection.MoveToPoint(startingPoint)
             Else

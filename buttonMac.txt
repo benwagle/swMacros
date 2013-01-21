@@ -62,7 +62,7 @@ Public Module Button
 
             propsFileName = propsFilePath + useResourcesKey.Replace(".", "\").Trim() + dotProperties
 
-            If cut.Contains("ButtonText=""") Or cut.Contains("AltText=""") Or cut.Contains("TabName=""") Then
+            If cut.Contains("ButtonText=""") Or cut.Contains("AltText=""") Then
                 eachLine = Split(cut, vbCrLf)
                 DTE.ActiveDocument.Selection.Delete()
                 For Each x In eachLine
@@ -194,6 +194,7 @@ Public Module Button
 
             If (isCfm) Then
                 DTE.ActiveDocument.Selection.Insert(cutCamel + "=" + keys)
+                DTE.ActiveDocument.Save()
                 DTE.ExecuteCommand("Window.NextDocumentWindowNav")
                 DTE.ActiveDocument.Selection.MoveToPoint(startingPoint)
             Else

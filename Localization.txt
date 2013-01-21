@@ -12,16 +12,16 @@ Imports System.Globalization
 Imports System.Collections
 Imports System.Resources
 
-Public Module Plain_to_cfText_Variable
+Public Module Localization
 
-    Sub Plain_to_cfText_wVariable()
+    Sub LocalizeString()
 
         Dim propsWindowName As String '= "Home.properties" 'Change per props file
         Dim propsFilePath As String = "C:\Source\trunk\sw\swchannel\Resources\"
         Dim dotProperties As String = ".properties"
         Dim propsFileName As String
         Dim useResourcesKey As String '= "Home.Home" 'Change per props file
-        Dim cut As String
+        Dim cuts As String
         Dim cutCamel As String
         Dim localeTagStart As String
         Dim localeTagEnd As String
@@ -33,60 +33,96 @@ Public Module Plain_to_cfText_Variable
         Dim propsFile As List(Of String())
         Dim keyExisted As Boolean = False
         Dim valueExisted As Boolean = False
-        Dim splitt As Array
-        Dim element As String
-        Dim vary As String
-        Dim variable As String
-        Dim plain As String
+        Dim cut As String
 
-        cut = DTE.ActiveDocument.Selection.Text
+        cuts = DTE.ActiveDocument.Selection.Text
+
+        'Testing Code'
+
+        Dim lines As String() = cuts.Split(vbCrLf)
+
+        '     For Each cut As Object In lines
+
+        'Testing Code'
+        For Each cut In lines
+            cut = cut.Trim
+            If (cut <> "") Then
+
+                cut = cut.Replace(vbCrLf, "")
+
+                If (isCfm) Then
+                    useResourcesKey = findResourcesKey(DTE.ActiveDocument.FullName)
+
+                    If useResourcesKey = "" Then
+                        MessageBox.Show("cf_sw_UseResource tag not found", "", MessageBoxButtons.OK, MessageBoxIcon.None, MessageBoxDefaultButton.Button1, MessageBoxOptions.ServiceNotification, False)
+                        Exit Sub
+                    End If
+
+                    Dim temp As String() = useResourcesKey.Split(".")
+
+                    If Not temp.Length = 2 Then
+                        MessageBox.Show("cf_sw_UseResource tag is not valid", "", MessageBoxButtons.OK, MessageBoxIcon.None, MessageBoxDefaultButton.Button1, MessageBoxOptions.ServiceNotification, False)
+                        Exit Sub
+                    End If
+
+                    propsWindowName = temp(1) + dotProperties
+
+                    localeTagStart = "<cf_sw_text key="""
+                    localeTagStart += useResourcesKey + "."
+                    localeTagEnd = """>"
+
+                    propsFileName = propsFilePath + useResourcesKey.Replace(".", "\").Trim() + dotProperties
+
+                    If cut.StartsWith("ButtonText=""") Then
+                        localeTagStart = "Key="""
+                        localeTagStart += useResourcesKey + "."
+                        localeTagEnd = """"
+                        cut = cut.Replace("ButtonText=""", "")
+                        cut = cut.Remove(cut.Length - 1)
+                    End If
+
+                    If cut.StartsWith("AltText=""") Then
+                        localeTagStart = "AltKey="""
+                        localeTagStart += useResourcesKey + "."
+                        localeTagEnd = """"
+                        cut = cut.Replace("AltText=""", "")
+                        cut = cut.Remove(cut.Length - 1)
+                    End If
+
+                    If cut.StartsWith("TabName=""") Then
+                        localeTagStart = "TabKey="""
+                        localeTagStart += useResourcesKey + "."
+                        localeTagEnd = """"
+                        cut = cut.Replace("TabName=""", "")
+                        cut = cut.Remove(cut.Length - 1)
+                    End If
 
 
-        If (isCfm) Then
-            useResourcesKey = Button.findResourcesKey(DTE.ActiveDocument.FullName)
 
-            If useResourcesKey = "" Then
-                MessageBox.Show("cf_sw_UseResource tag not found", "", MessageBoxButtons.OK, MessageBoxIcon.None, MessageBoxDefaultButton.Button1, MessageBoxOptions.ServiceNotification, False)
-                Exit Sub
+                Else
+                    localeTagStart = "<sw:localize runat=""server"" Label="""
+                    localeTagEnd = """ />"
+
+                    resexTagStart = "<data name="""
+                    resexTagMid = """ xml:space=""preserve""><value>"
+                    resexTagEnd = "</value></data>"
+                    Dim currentFile As String = DTE.ActiveDocument.FullName
+                    currentFile = currentFile.Substring(0, currentFile.IndexOf("wwwroot\"))
+
+                    propsFileName = currentFile + "wwwroot\App_GlobalResources\Resource.resx"
+                End If
+
+                cutCamel = ToCamelCase(cut)
+                cutCamel = RemoveNonWordCharacters(cutCamel)
+
+                If isCfm Then
+                    propsFile = readPropsFile(propsFileName)
+                Else
+                    propsFile = readResxFile(propsFileName)
+                End If
             End If
 
-            Dim temp As String() = useResourcesKey.Split(".")
-
-            If Not temp.Length = 2 Then
-                MessageBox.Show("cf_sw_UseResource tag is not valid", "", MessageBoxButtons.OK, MessageBoxIcon.None, MessageBoxDefaultButton.Button1, MessageBoxOptions.ServiceNotification, False)
-                Exit Sub
-            End If
-
-            propsWindowName = temp(1) + dotProperties
-
-            localeTagStart = "<cf_sw_text key="""
-            localeTagStart += useResourcesKey + "."
-            localeTagEnd = """>"
-
-            propsFileName = propsFilePath + useResourcesKey.Replace(".", "\").Trim() + dotProperties
-
-
-            'splitt = cut.Split("""")
-            element = cut
-            ' element = element.TrimEnd(">")
-            'element = element.Trim(" ")
-            'element = element.Trim("""")
-
-        End If
-
-        cutCamel = ToCamelCase(element)
-        cutCamel = RemoveNonWordCharacters(cutCamel)
-
-        vary = "l" + cutCamel
-        plain = "#" + vary + "#"
-        variable = " variable= """ + vary
-        DTE.ActiveDocument.Selection.Insert(localeTagStart + cutCamel + """" + variable + localeTagEnd + vbCrLf)
-
-        If isCfm Then
-            propsFile = readPropsFile(propsFileName)
-        Else
-            propsFile = readResxFile(propsFileName)
-        End If
+        Next
 
         For Each prop As Object In propsFile
             If ((isCfm And prop.Length = 2) Or (Not isCfm And prop.Length = 3)) Then
@@ -114,7 +150,7 @@ Public Module Plain_to_cfText_Variable
         DTE.UndoContext.Open("Localize String")
 
         DTE.ActiveDocument.Selection.Delete()
-        DTE.ActiveDocument.Selection.Insert(plain + "'")
+        DTE.ActiveDocument.Selection.Insert(localeTagStart + cutCamel + localeTagEnd)
         If (Not (keyExisted And valueExisted)) Then
             DTE.Windows.Item(Constants.vsWindowKindSolutionExplorer).Activate()
 
@@ -126,7 +162,7 @@ Public Module Plain_to_cfText_Variable
             End If
 
             If (isCfm) Then
-                DTE.ActiveDocument.Selection.Insert(cutCamel + "=" + element)
+                DTE.ActiveDocument.Selection.Insert(cutCamel + "=" + cut)
                 DTE.ActiveDocument.Save()
                 DTE.ExecuteCommand("Window.NextDocumentWindowNav")
                 DTE.ActiveDocument.Selection.MoveToPoint(startingPoint)
@@ -149,6 +185,7 @@ Public Module Plain_to_cfText_Variable
         End If
 
         DTE.UndoContext.Close()
+        '       Next
 
     End Sub
 
