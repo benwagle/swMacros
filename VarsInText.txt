@@ -75,7 +75,7 @@ Public Module VarsInText
         Dim copyArray(finArr.Length)
         For i = 0 To (finArr.Length - 1)
             copyArray(i) = finArr(i).ToString.Replace("#", "")
-            setMap = setMap.Insert(setMap.Length, copyArray(i) + " : " + finArr(i))
+            setMap = setMap.Insert(setMap.Length, copyArray(i) + " = " + finArr(i))
             If i = finArr.Length - 1 Then
                 setMap = setMap.Insert(setMap.Length, " ")
             Else
