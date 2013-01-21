@@ -78,7 +78,7 @@ Public Module Plain_to_cfText_Variable
         cutCamel = RemoveNonWordCharacters(cutCamel)
 
         vary = "l" + cutCamel
-        plain = """#" + vary + "#"""
+        plain = "#" + vary + "#"
         variable = " variable= """ + vary
         DTE.ActiveDocument.Selection.Insert(localeTagStart + cutCamel + """" + variable + localeTagEnd + vbCrLf)
 
@@ -114,7 +114,7 @@ Public Module Plain_to_cfText_Variable
         DTE.UndoContext.Open("Localize String")
 
         DTE.ActiveDocument.Selection.Delete()
-        DTE.ActiveDocument.Selection.Insert("<cf_sw_text key" + "= " + plain + ">" + vbCrLf)
+        DTE.ActiveDocument.Selection.Insert(plain + "'")
         If (Not (keyExisted And valueExisted)) Then
             DTE.Windows.Item(Constants.vsWindowKindSolutionExplorer).Activate()
 
