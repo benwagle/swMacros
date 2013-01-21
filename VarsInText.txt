@@ -24,7 +24,7 @@ Public Module VarsInText
         Dim cut As String
         Dim cutCamel As String
         Dim localeTagStart As String
-        Dim argTag As String = " arguments=""#map#"
+
         Dim localeTagEnd As String
         Dim resexTagStart As String
         Dim resexTagMid As String
@@ -53,7 +53,9 @@ Public Module VarsInText
         ' element = element.TrimEnd(">")
         'element = element.Trim(" ")
         'element = element.Trim("""")
-
+        cutCamel = ToCamelCase(cut)
+        cutCamel = RemoveNonWordCharacters(cutCamel)
+        Dim argTag As String = " arguments=""#" + cutCamel + "_map#"
         sep = cut.Split(" ")
         For Each word In sep
             If word.ToString.StartsWith("#") Then
@@ -68,13 +70,19 @@ Public Module VarsInText
                 iter += 1
             End If
         Next
-        Dim setMap As String = "<cfset map = { "
+        Dim setMap As String = "<cfset " + cutCamel + "_map = { "
         Dim i As Integer = 0
         Dim copyArray(finArr.Length)
         For i = 0 To (finArr.Length - 1)
             copyArray(i) = finArr(i).ToString.Replace("#", "")
-            setMap = setMap.Insert(setMap.Length, copyArray(i) + " : " + finArr(i) + " ")
+            setMap = setMap.Insert(setMap.Length, copyArray(i) + " : " + finArr(i))
+            If i = finArr.Length - 1 Then
+                setMap = setMap.Insert(setMap.Length, " ")
+            Else
+                setMap = setMap.Insert(setMap.Length, ", ")
+            End If
         Next
+        
         Dim closeMapTag As String = " } />" + vbCrLf
         Dim finalMapString As String = setMap + closeMapTag
         DTE.ActiveDocument.Selection.Insert(finalMapString)
@@ -106,8 +114,7 @@ Public Module VarsInText
 
         End If
 
-        cutCamel = ToCamelCase(cut)
-        cutCamel = RemoveNonWordCharacters(cutCamel)
+       
 
         vary = "l" + cutCamel
         'splitt(1) = """#" + vary + "#"""
