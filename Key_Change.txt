@@ -1,0 +1,86 @@
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Text.RegularExpressions
+
+Public Module Key_Change
+    Sub Key_changeer()
+        Dim current_key As String
+        Dim new_key As String
+        Dim propsWindowName As String '= "Home.properties" 'Change per props file
+        Dim propsFileName As String
+        Dim propsFilePath As String = "C:\Source\trunk\sw\swchannel\Resources\"
+        Dim dotProperties As String = ".properties"
+        Dim useResourcesKey As String
+        Dim resourcekey As String()
+
+
+        useResourcesKey = findResourcesKey(DTE.ActiveDocument.FullName)
+        resourcekey = useResourcesKey.Split(".")
+        propsWindowName = resourcekey(1) + dotProperties
+
+        propsFileName = propsFilePath + useResourcesKey.Replace(".", "\").Trim() + dotProperties
+        current_key = DTE.ActiveDocument.Selection.Text
+        new_key = InputBox("Enter your key name", "Input Required", current_key)
+        DTE.ActiveDocument.Selection.Insert(new_key)
+
+        DTE.Windows.Item(Constants.vsWindowKindSolutionExplorer).Activate()
+        DTE.ItemOperations.OpenFile(propsFileName)
+        DTE.Windows.Item(propsWindowName).Activate()
+
+        DTE.ExecuteCommand("Edit.Replace")
+        DTE.Find.Action = vsFindAction.vsFindActionReplaceAll
+        DTE.Find.FindWhat = current_key
+        DTE.Find.ReplaceWith = new_key
+        DTE.Find.Target = vsFindTarget.vsFindTargetCurrentDocument
+        DTE.Find.MatchCase = False
+        DTE.Find.MatchWholeWord = True
+        DTE.Find.MatchInHiddenText = False
+        DTE.Find.PatternSyntax = vsFindPatternSyntax.vsFindPatternSyntaxLiteral
+        DTE.Find.ResultsLocation = vsFindResultsLocation.vsFindResultsNone
+        If (DTE.Find.Execute() = vsFindResult.vsFindResultNotFound) Then
+            Throw New System.Exception("vsFindResultNotFound")
+        End If
+
+        DTE.Windows.Item("{CF2DDC32-8CAD-11D2-9302-005345000000}").Close()
+
+
+
+    End Sub
+
+
+    Function findResourcesKey(ByVal filePath As String)
+        Dim file As System.IO.File
+        Dim reader As System.IO.StreamReader
+        Dim line As String
+        Dim results As String = ""
+
+        Dim pattern As String = "\s*<cf_sw_UseResource key="""
+        Dim rgx As New Regex(pattern, RegexOptions.IgnoreCase)
+
+        Dim endPattern As String = """\s*>"
+        Dim endRgx As New Regex(endPattern)
+
+        reader = file.OpenText(filePath)
+
+        While reader.Peek <> -1
+            line = reader.ReadLine()
+            If rgx.IsMatch(line) Then
+                results = rgx.Replace(line, "")
+                results = endRgx.Replace(results, "")
+                Exit While
+            End If
+        End While
+
+        reader.Close()
+
+        Return results
+
+    End Function
+
+
+End Module
