@@ -11,7 +11,7 @@ Imports System.Windows.Forms
 Imports System.Globalization
 Imports System.Collections
 Imports System.Resources
-'Test
+'Test_New
 Public Module CFSet
 
     Sub CFSetVariable()
