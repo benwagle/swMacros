@@ -11,7 +11,11 @@ Imports System.Windows.Forms
 Imports System.Globalization
 Imports System.Collections
 Imports System.Resources
+<<<<<<< HEAD
 'Test_User2
+=======
+'Test_New
+>>>>>>> 6ccb9f4e400af804922f428a34e2767bccad855c
 Public Module CFSet
 
     Sub CFSetVariable()
