@@ -13,11 +13,11 @@ Imports System.Collections
 Imports System.Resources
 
 Public Module VarsInText
-    'FOR PLAIN TEXT ONLY
+    'LOT OF SCRAP CODE WILL CLEAN UP LATER
     Sub LocalizeVariablesInText()
 
         Dim propsWindowName As String '= "Home.properties" 'Change per props file
-        Dim propsFilePath As String = "C:\Source\trunk\sw\swchannel\Resources\"
+        Dim propsFilePath As String = "C:\Source\trunk\SW\swchannel\Resources\"
         Dim dotProperties As String = ".properties"
         Dim propsFileName As String
         Dim useResourcesKey As String '= "Home.Home" 'Change per props file
@@ -43,20 +43,71 @@ Public Module VarsInText
         cut = DTE.ActiveDocument.Selection.Text
         cut = cut.TrimStart(" ")
         Dim sep As Array
+        Dim q As Integer
 
-
+        Dim testStr As String = "Hello_this_is_just_ a test ima break This shit bro!"
+        Dim example As String = example.Copy(testStr)
+        'cut = adjustMapString(cut)
         Dim ctr As Integer = 0
         Dim finArr(ctr)
-
-        'splitt = cut.Split("""")
-        'element = splitt(1)
-        ' element = element.TrimEnd(">")
-        'element = element.Trim(" ")
-        'element = element.Trim("""")
+        Dim iterat As Integer = 0
+        Dim anotherstr As String
+        Dim intArr()
+        Dim p As Integer = 0
+        Dim t As Integer = 0
         cutCamel = ToCamelCase(cut)
         cutCamel = RemoveNonWordCharacters(cutCamel)
+        While q <> cut.Length - 1
+            If cut(q) = ("#") Then
+                t += 1
+                ReDim intArr(t)
+                intArr(t) = q
+            End If
+            q += 1
+        End While
+
+        'anotherstr = cutCamel.Substring(cutCamel.IndexOf("#"),
+        For Each stuff In cutCamel
+            If stuff.ToString.StartsWith("#") Then
+                iterat += 1
+
+            End If
+        Next
         Dim argTag As String = " arguments=""#" + cutCamel + "_map#"
-        sep = cut.Split(" ")
+        Dim z As Integer = 0
+        Dim beg As Integer = 0
+        Dim cuttest As String()
+        ReDim cuttest(1)
+        Dim arrayInd As Integer = 0
+        While t <> cut.Length - 1
+            If cut(t) = "#" Then
+                beg = t
+                t += 1
+                While cut(t) <> "#"
+                    t += 1
+                    z = t
+                    t = z
+                End While
+                t += 2
+                z = z - beg + 1
+                ReDim cuttest(arrayInd)
+                cuttest(arrayInd) = cut.Substring(beg, z)
+                arrayInd += 1
+            End If
+            t += 1
+        End While
+        Dim y As Integer
+        For y = 0 To cuttest.Length - 1
+            For Each element In cuttest
+                cuttest(y) = element.Replace(".", "_")
+                If cut.Contains(element) = True Then
+                    cut = cut.Replace(element, cuttest(y))
+                End If
+            Next
+        Next
+
+        sep = cut.Split(" # ")
+
         For Each word In sep
             If word.ToString.StartsWith("#") Then
                 ctr += 1
@@ -70,23 +121,35 @@ Public Module VarsInText
                 iter += 1
             End If
         Next
+
         Dim setMap As String = "<cfset " + cutCamel + "_map = { "
         Dim i As Integer = 0
-        Dim copyArray(finArr.Length)
-        For i = 0 To (finArr.Length - 1)
-            copyArray(i) = finArr(i).ToString.Replace("#", "")
-            setMap = setMap.Insert(setMap.Length, copyArray(i) + " = " + finArr(i))
-            If i = finArr.Length - 1 Then
+        'Dim copyArray(finArr.Length)
+        'For i = 0 To (finArr.Length - 1)
+        '    copyArray(i) = finArr(i).ToString.Replace("#", "")
+        '    setMap = setMap.Insert(setMap.Length, copyArray(i).ToString.Replace(".", "_") + " = " + finArr(i))
+        '    If i = finArr.Length - 1 Then
+        '        setMap = setMap.Insert(setMap.Length, " ")
+        '    Else
+        '        setMap = setMap.Insert(setMap.Length, ", ")
+        '    End If
+        'Next
+
+        Dim copyArray(cuttest.Length)
+        For i = 0 To (cuttest.Length - 1)
+            copyArray(i) = cuttest(i).ToString.Replace("#", "")
+            setMap = setMap.Insert(setMap.Length, copyArray(i).ToString.Replace(".", "_") + " = " + cuttest(i))
+            If i = cuttest.Length - 1 Then
                 setMap = setMap.Insert(setMap.Length, " ")
             Else
                 setMap = setMap.Insert(setMap.Length, ", ")
             End If
         Next
-        
+
         Dim closeMapTag As String = " } />" + vbCrLf
+
         Dim finalMapString As String = setMap + closeMapTag
         DTE.ActiveDocument.Selection.Insert(finalMapString)
-
         If (isCfm) Then
             useResourcesKey = findResourcesKey(DTE.ActiveDocument.FullName)
 
@@ -110,11 +173,11 @@ Public Module VarsInText
 
             propsFileName = propsFilePath + useResourcesKey.Replace(".", "\").Trim() + dotProperties
 
-            
+
 
         End If
 
-       
+
 
         vary = "l" + cutCamel
         'splitt(1) = """#" + vary + "#"""
@@ -191,7 +254,32 @@ Public Module VarsInText
         'DTE.UndoContext.Close()
 
     End Sub
+    Function adjustMapString(ByVal s As String)
 
+        Dim c As Integer
+        Dim tmpNum As Integer
+
+        If s.StartsWith(" ") Then
+            s = s.Trim()
+        End If
+
+        s = s.Replace(" ", "_")
+        s = s.Replace(".", "_")
+
+        For c = 0 To s.Length - 2
+            While s(c).IsLetterOrDigit(s(c)) <> True
+                c += 1
+                If s(c).IsLower(s(c)) Then
+                    tmpNum = c
+                    s = s.Insert(c, (s(c).ToUpper(s(c))))
+                    s = s.Remove(tmpNum + 1, 1)
+                End If
+            End While
+        Next
+
+        Return s
+
+    End Function
 
 
     Function ToCamelCase(ByVal s As String)
@@ -202,6 +290,7 @@ Public Module VarsInText
         Dim firstChar As Boolean = True
 
         For Each c As String In s.ToCharArray
+
             If (i < 30) Then
                 If (wasSpace) Then
                     If (c = " ") Then
@@ -230,6 +319,8 @@ Public Module VarsInText
                 End If
             End If
         Next
+
+        result = result.Remove(result.LastIndexOf("_"))
 
         Return result
     End Function
