@@ -77,8 +77,11 @@ Public Module VarsInText
         Dim z As Integer = 0
         Dim beg As Integer = 0
         Dim cuttest As String()
-        ReDim cuttest(1)
+        ReDim cuttest(2)
         Dim arrayInd As Integer = 0
+        Dim count As Integer
+        count = cut.Length - Len(Replace(cut, "#", ""))
+        ReDim cuttest((count / 2) - 1)
         While t <> cut.Length - 1
             If cut(t) = "#" Then
                 beg = t
@@ -90,21 +93,22 @@ Public Module VarsInText
                 End While
                 t += 2
                 z = z - beg + 1
-                ReDim cuttest(arrayInd)
                 cuttest(arrayInd) = cut.Substring(beg, z)
                 arrayInd += 1
             End If
             t += 1
         End While
         Dim y As Integer
-        For y = 0 To cuttest.Length - 1
+        While y <> cuttest.Length - 1
             For Each element In cuttest
                 cuttest(y) = element.Replace(".", "_")
                 If cut.Contains(element) = True Then
                     cut = cut.Replace(element, cuttest(y))
+                    y += 1
+                    Exit For
                 End If
             Next
-        Next
+        End While
 
         sep = cut.Split(" # ")
 
