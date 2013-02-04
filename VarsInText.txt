@@ -98,6 +98,8 @@ Public Module VarsInText
             End If
             t += 1
         End While
+        Dim newArr As Array
+        newArr = cuttest.Clone()
         Dim y As Integer
         While y <> cuttest.Length - 1
             For Each element In cuttest
@@ -142,7 +144,7 @@ Public Module VarsInText
         Dim copyArray(cuttest.Length)
         For i = 0 To (cuttest.Length - 1)
             copyArray(i) = cuttest(i).ToString.Replace("#", "")
-            setMap = setMap.Insert(setMap.Length, copyArray(i).ToString.Replace(".", "_") + " = " + cuttest(i))
+            setMap = setMap.Insert(setMap.Length, copyArray(i).ToString.Replace(".", "_") + " = " + newArr(i))
             If i = cuttest.Length - 1 Then
                 setMap = setMap.Insert(setMap.Length, " ")
             Else
