@@ -47,7 +47,7 @@ Public Module VarsInText
 
         Dim testStr As String = "Hello_this_is_just_ a test ima break This shit bro!"
         Dim example As String = example.Copy(testStr)
-        'cut = adjustMapString(cut)
+
         Dim ctr As Integer = 0
         Dim finArr(ctr)
         Dim iterat As Integer = 0
@@ -66,7 +66,6 @@ Public Module VarsInText
             q += 1
         End While
 
-        'anotherstr = cutCamel.Substring(cutCamel.IndexOf("#"),
         For Each stuff In cutCamel
             If stuff.ToString.StartsWith("#") Then
                 iterat += 1
@@ -82,7 +81,7 @@ Public Module VarsInText
         Dim count As Integer
         count = cut.Length - Len(Replace(cut, "#", ""))
         ReDim cuttest((count / 2) - 1)
-        While t <> cut.Length - 1
+        While t <> cut.Length - 1 And t < cut.Length
             If cut(t) = "#" Then
                 beg = t
                 t += 1
@@ -130,16 +129,6 @@ Public Module VarsInText
 
         Dim setMap As String = "<cfset " + cutCamel + "_map = { "
         Dim i As Integer = 0
-        'Dim copyArray(finArr.Length)
-        'For i = 0 To (finArr.Length - 1)
-        '    copyArray(i) = finArr(i).ToString.Replace("#", "")
-        '    setMap = setMap.Insert(setMap.Length, copyArray(i).ToString.Replace(".", "_") + " = " + finArr(i))
-        '    If i = finArr.Length - 1 Then
-        '        setMap = setMap.Insert(setMap.Length, " ")
-        '    Else
-        '        setMap = setMap.Insert(setMap.Length, ", ")
-        '    End If
-        'Next
 
         Dim copyArray(cuttest.Length)
         For i = 0 To (cuttest.Length - 1)
