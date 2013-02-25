@@ -1,0 +1,272 @@
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Collections.Generic
+Imports System.Text.RegularExpressions
+Imports System.Windows.Forms
+Imports System.Globalization
+Imports System.Collections
+Imports System.Resources
+Imports System.Text.RegularExpressions.Regex
+
+
+Public Module PlainText
+
+    Dim ret As Microsoft.VisualBasic.MsgBoxResult
+    Dim cut As String
+    'Pattern for Pure Plaintext between HTML Tag such as <span></span>
+    Dim p_PurePlaintext_btwHTMLTag As String = "(<\w+\s*[^>]*>)+\s*\w+[\w\s_%*/\(\)"".,:$<>]+</[A-Za-z][\w+\s=""0-9]*>"
+    Dim p_HTMLTag As String = "</?\w+\s*[^>]*>|</[A-Za-z][A-Za-z0-9]*>"
+    Dim p_Undesired As String = "cfquery|CFQUERY|\w+\s+</?cfquery>|\w+\s+</?CFQUERY>|<\w+\s*[^>]*>(\s+selected|Selected|Checked|checked)</?\w+>|<\w+\s*[^>]*\s+(checked|disabled)[\s\w]+>"
+
+    Dim propsFilePath As String = "C:\Source\trunk\sw\swchannel\Resources\"
+    Dim useResourcesKey = findResourcesKey(DTE.ActiveDocument.FullName)
+    Dim dotProperties As String = ".properties"
+    Dim propsWindowName As String = useResourcesKey.split(".")(1) + dotProperties
+    Dim cfmsWindowName As String = DTE.ActiveDocument.Name.ToString
+    Dim propsFileName = propsFilePath + useResourcesKey.Replace(".", "\").Trim() + dotProperties
+    Dim startingPoint As Object = DTE.ActiveDocument.Selection.AnchorPoint
+    Dim isCfm As Boolean = DTE.ActiveDocument.FullName.EndsWith(".cfm")
+
+
+    Sub Pure_PlainText_Btw_HTMLTag_Find_Changer()
+
+        cut = DTE.ActiveDocument.Selection.Text
+
+        Dim re_PurePlaintext_btwHTMLTag As New Regex(p_PurePlaintext_btwHTMLTag)
+        Dim re_Undesired As New Regex(p_Undesired)
+        Dim result As System.Text.RegularExpressions.MatchCollection
+        Dim al_plain_text_wTag As New ArrayList
+        Dim al_plain_text As New ArrayList
+        Dim ar_plain_text_wHTMLTag() As String 'Target
+        Dim ar_cf_sw_text_wHTMLTag() As String 'Replacement
+        Dim ar_plain_text_wOTag() As String
+        Dim ar_key_wOTag() As String
+        Dim ar_cf_sw_text_wTag()
+
+
+        result = re_PurePlaintext_btwHTMLTag.Matches(cut, p_PurePlaintext_btwHTMLTag)
+        For i = 0 To result.Count - 1
+            If Not re_Undesired.IsMatch(result.Item(i).ToString, p_Undesired) Then
+                al_plain_text_wTag.Add(result.Item(i).ToString)
+            End If
+
+        Next
+
+        'Plain text with Tag. Will be the target string to look for
+        ar_plain_text_wHTMLTag = CType(al_plain_text_wTag.ToArray(GetType(String)), String())
+
+
+        'Take Plain Text to create the key
+        ReDim ar_plain_text_wOTag(ar_plain_text_wHTMLTag.Length - 1)
+        For i = 0 To ar_plain_text_wHTMLTag.Length - 1
+            ar_plain_text_wOTag(i) = Regex.Replace(ar_plain_text_wHTMLTag(i), p_HTMLTag, "")
+        Next
+
+        'Create the key
+        ReDim ar_key_wOTag(ar_plain_text_wOTag.Length - 1)
+        For i = 0 To ar_plain_text_wOTag.Length - 1
+            ar_key_wOTag(i) = ToDavidCase(ar_plain_text_wOTag(i))
+        Next
+
+        'Build cf_sw_text blocks
+        ReDim ar_cf_sw_text_wTag(ar_key_wOTag.Length - 1)
+        For i = 0 To ar_key_wOTag.Length - 1
+            ar_cf_sw_text_wTag(i) = "<cf_sw_text key=""" + useResourcesKey + "." + ar_key_wOTag(i) + """>"
+        Next
+
+        'Replace plain text to cf_sw_text block in memory space
+        ReDim ar_cf_sw_text_wHTMLTag(ar_plain_text_wHTMLTag.Length - 1)
+        For i = 0 To ar_plain_text_wHTMLTag.Length - 1
+            ar_cf_sw_text_wHTMLTag(i) = Regex.Replace(ar_plain_text_wHTMLTag(i), ar_plain_text_wOTag(i).Trim, ar_cf_sw_text_wTag(i))
+        Next
+
+
+        'Replace Old cf_CustomButton or Tab with New having keys
+        DTE.ExecuteCommand("Edit.Replace")
+        DTE.Find.Action = vsFindAction.vsFindActionReplaceAll
+
+        DTE.Find.Target = vsFindTarget.vsFindTargetCurrentDocumentSelection
+        DTE.Find.MatchCase = False
+        DTE.Find.MatchWholeWord = True
+        DTE.Find.MatchInHiddenText = False
+        DTE.Find.PatternSyntax = vsFindPatternSyntax.vsFindPatternSyntaxLiteral
+        DTE.Find.ResultsLocation = vsFindResultsLocation.vsFindResultsNone
+
+        For i = 0 To ar_plain_text_wHTMLTag.Length - 1
+            ret = MsgBox(ar_plain_text_wHTMLTag(i) + "\n\n -----> \n\n" + ar_cf_sw_text_wHTMLTag(i), MsgBoxStyle.YesNoCancel, "Change?")
+            If ret = MsgBoxResult.Yes Then
+                DTE.Find.FindWhat = ar_plain_text_wHTMLTag(i)
+                DTE.Find.ReplaceWith = ar_cf_sw_text_wHTMLTag(i)
+                If (DTE.Find.Execute() = vsFindResult.vsFindResultNotFound) Then
+
+                End If
+
+            ElseIf ret = MsgBoxResult.Cancel Then
+                Exit Sub
+            ElseIf ret = MsgBoxResult.No Then
+                Continue For
+            End If
+        Next
+
+        'Closing Replace Dialog
+        DTE.Windows.Item("{CF2DDC32-8CAD-11D2-9302-005345000000}").Close()
+
+    End Sub
+
+    Function ToDavidCase(Optional ByVal value As String = "This is Long Test String, I am ", Optional ByVal keysize As Integer = 4)
+        Dim key As String
+        Dim keyname_candidate As String()
+        Dim propsFile As List(Of String())
+        Dim i As Integer = 0
+        Dim f_Collision As Integer = 0
+        Dim s As String
+        propsFile = readPropsFile(propsFileName)
+        value = value.Trim
+        s = value
+        s = RemoveNonWordCharacters(s)
+        keyname_candidate = Regex.Split(s, "[\s_]+")
+
+        Do
+            key = Generate_Key(keyname_candidate, keysize)
+            f_Collision = isColision(propsFile, key, value)
+            If keysize < keyname_candidate.Length And f_Collision = 1 Then
+                keysize = keysize + 1
+            ElseIf f_Collision = 1 Then
+                key = key + "_" + Int(Rnd() * 10000000).ToString
+                f_Collision = 0
+                Exit Do
+            End If
+        Loop While f_Collision = 1
+
+        If f_Collision = 0 Then
+            Write_Properties_File(key, value)
+        End If
+
+        Return key
+    End Function
+
+    Sub Write_Properties_File(ByVal key As String, ByVal value As String)
+        DTE.Windows.Item(Constants.vsWindowKindSolutionExplorer).Activate()
+
+        If (isCfm) Then
+            DTE.ItemOperations.OpenFile(propsFileName)
+            DTE.Windows.Item(propsWindowName).Activate()
+            DTE.ActiveDocument.Selection.EndOfDocument()
+            'DTE.ActiveDocument.Selection.NewLine()
+        End If
+
+        If (isCfm) Then
+            DTE.ActiveDocument.Selection.Insert(vbCrLf + key + "=" + value.Trim)
+            DTE.ActiveDocument.Save()
+            DTE.Windows.Item(cfmsWindowName).Activate()
+
+
+
+        End If
+
+    End Sub
+
+    Function Generate_Key(ByVal keyname_candidate() As String, ByVal keysize As Integer)
+        'Taking the [keysize] numbers of the world and create key in accordance with camel case style variable naming
+        Dim key As String
+        Dim i As Integer
+        key = keyname_candidate(0).Chars(0).ToString().ToUpper + keyname_candidate(0).Substring(1).ToLower
+        i = 1
+        While (i < keysize And i < keyname_candidate.Length - 1)
+            If Not "".IsNullOrWhiteSpace(keyname_candidate(i)) Then
+                key = key + "_" + keyname_candidate(i).Chars(0).ToString().ToUpper + keyname_candidate(i).Substring(1).ToLower
+                i = i + 1
+            End If
+        End While
+        Return key
+    End Function
+
+
+    Function isColision(ByRef PropsFile As List(Of String()), Optional ByVal key As String = "To_Create_A_New_Form_Click", Optional ByVal value As String = "To create a new form click on the Add New button below.")
+
+        For Each prop As Object In PropsFile
+            If ((isCfm And prop.Length = 2) Or (Not isCfm And prop.Length = 3)) Then
+                If (prop(0).ToLower().Equals(key.ToLower())) And (prop(1).Equals(value)) Then
+                    Return -1 'Key, Value Pair exist in properties file
+                ElseIf (prop(0).ToLower().Equals(key.ToLower())) And Not (prop(1).Equals(value)) Then
+                    Return 1 'Key exist, however value doesn't match : Key Collision
+                End If
+
+
+            End If
+        Next
+        Return 0 ' No collision
+    End Function
+
+
+    Function readPropsFile(ByVal filePath As String) As List(Of String())
+        Dim file As System.IO.File
+        Dim reader As System.IO.StreamReader
+        Dim line As String
+        Dim results As New List(Of String())
+
+        reader = file.OpenText(filePath)
+
+        While reader.Peek <> -1
+            line = reader.ReadLine()
+            If Not line.Equals("") Then
+                results.Add(line.Split("="))
+            End If
+        End While
+
+        reader.Close()
+
+        Return results
+
+    End Function
+
+
+
+    Function RemoveNonWordCharacters(ByVal s As String)
+        Dim pattern As String = ":"
+        Dim replacement As String = "_Colon"
+        Dim rgx As New Regex(pattern)
+        Dim result As String = rgx.Replace(s, replacement)
+        s = result
+
+        pattern = "[^\w^\s]"
+        replacement = ""
+        Dim rgx2 As New Regex(pattern)
+        result = rgx2.Replace(s, replacement)
+        Return result
+    End Function
+
+    Function findResourcesKey(ByVal filePath As String)
+        Dim file As System.IO.File
+        Dim reader As System.IO.StreamReader
+        Dim line As String
+        Dim results As String = ""
+
+        Dim pattern As String = "\s*<cf_sw_UseResource key="""
+        Dim rgx As New Regex(pattern, RegexOptions.IgnoreCase)
+
+        Dim endPattern As String = """\s*>"
+        Dim endRgx As New Regex(endPattern)
+
+        reader = file.OpenText(filePath)
+
+        While reader.Peek <> -1
+            line = reader.ReadLine()
+            If rgx.IsMatch(line) Then
+                results = rgx.Replace(line, "")
+                results = endRgx.Replace(results, "")
+                Exit While
+            End If
+        End While
+
+        reader.Close()
+
+        Return results
+
+    End Function
+End Module
