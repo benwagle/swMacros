@@ -1,0 +1,82 @@
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Collections.Generic
+Imports System.Text.RegularExpressions
+Imports System.Windows.Forms
+Imports System.Globalization
+Imports System.Collections
+Imports System.Resources
+Imports System.IO.Stream
+Imports System.Threading
+
+Public Module ReverseQuery
+
+    Sub ReverseQuery()
+
+        'Macro Functionality: In the event an attribute/column needs to be reversed to
+        'plain text in the database, this macro will simply take the .sql file generated
+        '(w/ UPDATE from plaintext to key_names) and reverse it back to plain text as it
+        'was, pre-localization.
+
+        'Caution: Make sure to adjust the file paths accordingly.  
+        'TODO: Handle IndexOutOfBounds --- Error is thrown when cursor is positioned on the 
+        'last blank line following the highlighted text.  To avoid error, highlight text only
+        'leaving cursor at the end of the text/or beginning
+
+        Dim sqlFilePath, attributeName As String
+
+        'sqlFilePath = InputBox("Please enter the destination path for the generated .SQL file:")
+        sqlFilePath = "C:\GitSource\sw\swchannel\Resources\DBNames"
+        attributeName = InputBox("Please enter the TABLE name to 'Update':")
+
+        If sqlFilePath = "" Or attributeName = "" Then
+            Exit Sub
+        End If
+
+        Dim dotSQL As String = ".sql"
+        Dim cut, c, lStringLen, temp As String
+        Dim rowArray, keyNames, splitter As Array
+        Dim i, j As Integer
+        Dim fileName As Object = DTE.ActiveDocument.Name
+        Dim fileNameStr As Array = fileName.ToString.Split(".")
+        Dim destSQLPath As String = sqlFilePath + "\" + fileNameStr(0) + "_Reverse" + dotSQL
+
+        cut = DTE.ActiveDocument.Selection.Text
+        rowArray = cut.Split(vbCrLf)
+        keyNames = rowArray.Clone()
+        splitter = rowArray.Clone()
+
+        For i = 0 To rowArray.Length - 1
+
+            rowArray(i) = rowArray(i).Trim()
+            splitter = rowArray(i).Split("'")
+            temp = "'" + splitter(1) + "'"
+            splitter(1) = "'" + splitter(3) + "'"
+            splitter(3) = temp
+            temp = ""
+
+            For j = 0 To splitter.Length - 1
+                temp += splitter(j)
+            Next
+
+            rowArray(i) = temp
+            
+        Next
+
+        If Not FileIO.FileSystem.FileExists(destSQLPath) Then
+            IO.File.Create(destSQLPath).Dispose()
+        End If
+
+        For j = 0 To rowArray.Length - 2
+            FileIO.FileSystem.WriteAllText(destSQLPath, rowArray(j) + vbCrLf, True) '("UPDATE " + attributeName + " SET " + fileNameStr(0) + " = " + "'" + rowArray(j) + "'" + " WHERE " + fileNameStr(0) + " = " + "'" + keyNames(j) + "'" + ";" + vbCrLf), True)
+        Next
+
+        DTE.ItemOperations.OpenFile(destSQLPath)
+
+    End Sub
+End Module

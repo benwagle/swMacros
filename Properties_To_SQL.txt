@@ -1,0 +1,77 @@
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Collections.Generic
+Imports System.Text.RegularExpressions
+Imports System.Windows.Forms
+Imports System.Globalization
+Imports System.Collections
+Imports System.Resources
+Imports System.IO.Stream
+Imports System.Threading
+
+Public Module Properties_To_SQL
+
+    Sub Properties_To_SQL()
+
+        'Caution: This macro runs from the macro: "DB_To_Properties", but may be used seperately 
+        'if desired.
+
+        'Macro Functionality: Given a selection in the .properties file, and the TABLE name to
+        'be updated in the database, this macro will generate a .sql file of all 'Update'
+        'statements needed to SET the key in place of the plain text
+
+        Dim sqlFilePath, attributeName As String
+
+        'sqlFilePath = InputBox("Please enter the destination path for the generated .SQL file:")
+        sqlFilePath = "C:\GitSource\sw\swchannel\Resources\DBNames"
+        attributeName = InputBox("Please enter the TABLE name to 'Update':")
+
+        If sqlFilePath = "" Or attributeName = "" Then
+            Exit Sub
+        End If
+
+        Dim dotSQL As String = ".sql"
+        Dim cut, c, lStringLen As String
+        Dim rowArray, keyNames As Array
+        Dim i, j As Integer
+        Dim fileName As Object = DTE.ActiveDocument.Name
+        Dim fileNameStr As Array = fileName.ToString.Split(".")
+        Dim destSQLPath As String = sqlFilePath + "\" + fileNameStr(0) + dotSQL
+
+        cut = DTE.ActiveDocument.Selection.Text
+        rowArray = cut.Split(vbCrLf)
+        keyNames = rowArray.Clone()
+
+        For i = 0 To rowArray.Length - 1
+            rowArray(i) = rowArray(i).Trim()
+
+            For Each c In rowArray(i)
+                If c <> "=" Then
+                    lStringLen += c
+                Else
+                    Exit For
+                End If
+            Next
+
+            keyNames(i) = lStringLen
+            rowArray(i) = rowArray(i).ToString.Replace(lStringLen + "=", "")
+            lStringLen = ""
+        Next
+
+        If Not FileIO.FileSystem.FileExists(destSQLPath) Then
+            IO.File.Create(destSQLPath).Dispose()
+        End If
+
+        For j = 0 To rowArray.Length - 2
+            FileIO.FileSystem.WriteAllText(destSQLPath, ("UPDATE " + attributeName + " SET " + fileNameStr(0) + " = " + "'" + keyNames(j) + "'" + " WHERE " + fileNameStr(0) + " = " + "'" + rowArray(j) + "'" + ";" + vbCrLf), True)
+        Next
+
+        DTE.ItemOperations.OpenFile(destSQLPath)
+
+    End Sub
+End Module

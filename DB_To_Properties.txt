@@ -1,0 +1,125 @@
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Collections.Generic
+Imports System.Text.RegularExpressions
+Imports System.Windows.Forms
+Imports System.Globalization
+Imports System.Collections
+Imports System.Resources
+Imports System.IO.Stream
+
+Public Module DB_To_Properties
+
+    'Macro Functionality: Given a selection from a .csv file of values exported from PL/SQL 
+    'Developer, this macro will generate a .properties file in the directory specified.  
+    'It will then run a second macro which will take the generated .properties file 
+    'and create a .sql file of 'Update' commands for the database.
+
+    'To use macro, 'Select All' in current document.  The file name of the current document should
+    'be the column(attribute) name of the values being exported from Database.  ".csv" file 
+    'preferable.  This macro will also run Properties_To_SQL which requires a path to create
+    'the SQL file in and the TABLE name that is to be updated.
+
+    Sub DB_To_Properties()
+
+        Dim propsFilePath As String = "C:\GitSource\sw\swchannel\Resources\DBNames"
+        Dim dotProperties As String = ".properties"
+
+        Dim cut, cutCamel, c As String
+        Dim rowArray As Array
+        Dim i, j As Integer
+        Dim files As Object = DTE.ActiveDocument.Name
+        Dim fileNameStr As Array = files.ToString.Split(".")
+        Dim keyNames As String()
+
+        cut = DTE.ActiveDocument.Selection.Text
+        cut = cut.Trim()
+
+        rowArray = cut.Split(vbCrLf)
+        ReDim keyNames(rowArray.Length)
+
+        For i = 0 To rowArray.Length - 1
+            If rowArray(i) <> "" Then
+                keyNames(i) = rowArray(i)
+                rowArray(i) = ToCamelCase(rowArray(i))
+                cutCamel = rowArray(i)
+
+                For Each c In cutCamel
+                    If Char.IsPunctuation(c) And c <> "_" Then
+                        rowArray(i) = rowArray(i).ToString.Replace(c, "")
+                    End If
+                Next
+
+                rowArray(i) = rowArray(i).Trim()
+                rowArray(i) = UCase(Left(rowArray(i), 1)) & Mid(rowArray(i), 2)
+                rowArray(i) = rowArray(i) + "=" + (keyNames(i).Replace("""", "")).Trim()
+            End If
+        Next
+
+        Dim destPropsPath As String = propsFilePath + "\" + fileNameStr(0) + dotProperties
+
+        If Not FileIO.FileSystem.FileExists(destPropsPath) Then
+            IO.File.Create(destPropsPath).Dispose()
+        End If
+
+        For j = 0 To rowArray.Length - 1
+            FileIO.FileSystem.WriteAllText((destPropsPath), (rowArray(j) + vbCrLf), True)
+        Next
+        
+        DTE.ItemOperations.OpenFile(destPropsPath)
+        DTE.ActiveWindow.Selection.SelectAll()
+
+        Try
+            Properties_To_SQL.Properties_To_SQL()
+        Catch ex As Exception
+            Exit Sub
+        End Try
+
+    End Sub
+
+    Function ToCamelCase(ByVal s As String)
+        Dim result As String
+        Dim wasSpace As Boolean
+        wasSpace = False
+        Dim i As Integer = 0
+        Dim firstChar As Boolean = True
+
+        For Each c As String In s.ToCharArray
+
+            If (wasSpace) Then
+                If (c = " ") Then
+                    wasSpace = True
+                Else
+                    result += Char.ToUpper(c)
+                    i += 1
+                    wasSpace = False
+                End If
+            Else
+                If (c = " ") Then
+                    result += "_"
+                    i += 1
+                    wasSpace = True
+                Else
+                    If (firstChar) Then
+                        result += Char.ToUpper(c)
+                        i += 1
+                        firstChar = False
+                    Else
+                        result += Char.ToLower(c)
+                        i += 1
+                    End If
+
+                End If
+            End If
+
+        Next
+
+        Return result
+    End Function
+
+End Module

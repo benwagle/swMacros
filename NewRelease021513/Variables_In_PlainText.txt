@@ -1,0 +1,416 @@
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Collections.Generic
+Imports System.Text.RegularExpressions
+Imports System.Windows.Forms
+Imports System.Globalization
+Imports System.Collections
+Imports System.Resources
+Imports System.Text.RegularExpressions.Regex
+
+Public Module Variable_In_Sentence_Map
+    Dim pattern As String = "</?\w+\s+[^>]*>|<[A-Za-z][A-Za-z0-9]*>|</[A-Za-z][A-Za-z0-9]*>*"
+
+
+    Sub UpVarsInText_To_Map()
+        Dim al_PlaceHolder As New ArrayList
+        Dim propsWindowName As String '= "Home.properties" 'Change per props file
+        Dim propsFilePath As String = "C:\Source\trunk\sw\swchannel\Resources\"
+        Dim dotProperties As String = ".properties"
+        Dim propsFileName As String
+        Dim useResourcesKey As String '= "Home.Home" 'Change per props file
+        Dim cuts As String
+        Dim cutCamel As String
+        Dim localeTagStart As String
+        Dim localeTagEnd As String
+        Dim resexTagStart As String
+        Dim resexTagMid As String
+        Dim resexTagEnd As String
+        Dim startingPoint As Object = DTE.ActiveDocument.Selection.AnchorPoint
+        Dim isCfm As Boolean = DTE.ActiveDocument.FullName.EndsWith(".cfm")
+        Dim propsFile As List(Of String())
+        Dim keyExisted As Boolean = False
+        Dim valueExisted As Boolean = False
+        Dim cut As String
+        Dim cfset_map As String
+        cuts = DTE.ActiveDocument.Selection.Text
+
+        cfset_map = Get_CfSet_Map(al_PlaceHolder)
+
+        'Testing Code'
+
+        Dim lines As String() = cuts.Split(vbCrLf)
+
+        '     For Each cut As Object In lines
+
+        'Testing Code'
+        For Each cut In lines
+            cut = cut.Trim
+            If (cut <> "") Then
+
+                cut = cut.Replace(vbCrLf, "")
+                If (isCfm) Then
+                    useResourcesKey = findResourcesKey(DTE.ActiveDocument.FullName)
+
+                    If useResourcesKey = "" Then
+                        MessageBox.Show("cf_sw_UseResource tag not found", "", MessageBoxButtons.OK, MessageBoxIcon.None, MessageBoxDefaultButton.Button1, MessageBoxOptions.ServiceNotification, False)
+                        Exit Sub
+                    End If
+
+                    Dim temp As String() = useResourcesKey.Split(".")
+
+                    If Not temp.Length = 2 Then
+                        MessageBox.Show("cf_sw_UseResource tag is not valid", "", MessageBoxButtons.OK, MessageBoxIcon.None, MessageBoxDefaultButton.Button1, MessageBoxOptions.ServiceNotification, False)
+                        Exit Sub
+                    End If
+
+                    propsWindowName = temp(1) + dotProperties
+
+                    localeTagStart = "<cf_sw_text key="""
+                    localeTagStart += useResourcesKey + "."
+                    localeTagEnd = ">"
+
+                    propsFileName = propsFilePath + useResourcesKey.Replace(".", "\").Trim() + dotProperties
+
+                    If cut.StartsWith("ButtonText=""") Then
+                        localeTagStart = "Key="""
+                        localeTagStart += useResourcesKey + "."
+                        localeTagEnd = """"
+                        cut = cut.Replace("ButtonText=""", "")
+                        cut = cut.Remove(cut.Length - 1)
+                    End If
+
+                    If cut.StartsWith("AltText=""") Then
+                        localeTagStart = "AltKey="""
+                        localeTagStart += useResourcesKey + "."
+                        localeTagEnd = """"
+                        cut = cut.Replace("AltText=""", "")
+                        cut = cut.Remove(cut.Length - 1)
+                    End If
+
+                    If cut.StartsWith("TabName=""") Then
+                        localeTagStart = "TabKey="""
+                        localeTagStart += useResourcesKey + "."
+                        localeTagEnd = """"
+                        cut = cut.Replace("TabName=""", "")
+                        cut = cut.Remove(cut.Length - 1)
+                    End If
+
+
+
+                Else
+                    localeTagStart = "<sw:localize runat=""server"" Label="""
+                    localeTagEnd = """ />"
+
+                    resexTagStart = "<data name="""
+                    resexTagMid = """ xml:space=""preserve""><value>"
+                    resexTagEnd = "</value></data>"
+                    Dim currentFile As String = DTE.ActiveDocument.FullName
+                    currentFile = currentFile.Substring(0, currentFile.IndexOf("wwwroot\"))
+
+                    propsFileName = currentFile + "wwwroot\App_GlobalResources\Resource.resx"
+                End If
+
+                cutCamel = ToDavidCase(cut)
+                cutCamel = RemoveNonWordCharacters(cutCamel)
+
+                If isCfm Then
+                    propsFile = readPropsFile(propsFileName)
+                Else
+                    propsFile = readResxFile(propsFileName)
+                End If
+            End If
+
+        Next
+
+        For Each prop As Object In propsFile
+            If ((isCfm And prop.Length = 2) Or (Not isCfm And prop.Length = 3)) Then
+                If (prop(0).ToLower().Equals(cutCamel.ToLower())) Then
+                    cutCamel = prop(0)
+                    keyExisted = True
+                    If (prop(1).Equals(cut)) Then
+                        valueExisted = True
+                    Else
+                        'if keys match and values do not
+                        cutCamel = ""
+                        MessageBox.Show("key exists please create a new unique key", "", MessageBoxButtons.OK, MessageBoxIcon.None, MessageBoxDefaultButton.Button1, MessageBoxOptions.ServiceNotification, False)
+                    End If
+                    Exit For
+                ElseIf (prop(1).Equals(cut)) Then
+                    cutCamel = prop(0)
+                    keyExisted = True
+                    valueExisted = True
+                    Exit For
+                End If
+            End If
+        Next
+
+
+        DTE.UndoContext.Open("Localize String")
+
+        DTE.ActiveDocument.Selection.Delete()
+        DTE.ActiveDocument.Selection.Insert(localeTagStart + cutCamel + """ arguments=""#" + cutCamel + "_Map#""" + localeTagEnd)
+        If (Not (keyExisted And valueExisted)) Then
+            DTE.Windows.Item(Constants.vsWindowKindSolutionExplorer).Activate()
+
+            If (isCfm) Then
+                DTE.ItemOperations.OpenFile(propsFileName)
+                DTE.Windows.Item(propsWindowName).Activate()
+                DTE.ActiveDocument.Selection.EndOfDocument()
+                DTE.ActiveDocument.Selection.NewLine()
+            End If
+
+            If (isCfm) Then
+
+                cut = Replace(cut, "\.\b", "_")
+                DTE.ActiveDocument.Selection.Insert(cutCamel + "=" + cut)
+                DTE.ActiveDocument.Save()
+                DTE.ExecuteCommand("Window.NextDocumentWindowNav")
+                DTE.ActiveDocument.Selection.MoveToPoint(startingPoint)
+            Else
+                Dim writer As New ResXResourceWriter(propsFileName)
+                writer.AddResource(cutCamel, cut)
+
+                For Each prop As String() In propsFile
+                    Dim node As New ResXDataNode(prop(0), prop(1))
+                    node.Comment = prop(2)
+                    writer.AddResource(prop(0), node)
+                Next
+
+                writer.Close()
+                DTE.ActiveDocument.Selection.MoveToPoint(startingPoint)
+                Exit Sub
+
+            End If
+
+        End If
+
+        DTE.UndoContext.Close()
+
+
+        '    variable = re.Matches(variable_wTag(1), p_Char)
+        'For i = 0 To variable.Count - 1
+        'variable_s = variable_s + variable.Item(i).ToString
+        ' Next
+
+
+        ' Declare an object for the word application '
+        Dim objWord As Object = CreateObject("Word.Application")
+        Dim cfsets As String
+
+
+        ' Using the object '
+        With objWord
+            .Visible = False         ' Don't show word '
+            .Documents.Add()           ' Create a document '
+            .Selection.TypeText(cfset_map)   ' Put text into it '
+            .Selection.WholeStory()        ' Select everything in the doc '
+            .Selection.Copy()          ' Copy contents to clipboard '
+            .Quit(False)          ' Close Word, don't save ' 
+        End With
+
+    End Sub
+
+
+    Function Get_CfSet_Map(ByRef al_PlaceHolder As ArrayList)
+        Dim p_alphanumeric As New Regex("[A-Za-z0-9]")
+        Dim matching_vars As System.Text.RegularExpressions.MatchCollection
+        Dim p_textwPound As String = "#[a-zA-Z0-9._^#]+#"
+        Dim p_HTMLTag As String = "</?\w+\s*[^>]*>|</[A-Za-z][A-Za-z0-9]*>"
+        Dim p_Char As String = "[\w+]"
+        Dim variable_woTag() As String
+        Dim variable As System.Text.RegularExpressions.MatchCollection
+        Dim re As New Regex(pattern)
+        Dim targetString As String
+
+        Dim al_variable_candidates As New ArrayList
+        Dim al_variables As New ArrayList
+        Dim al_cfset As New ArrayList
+
+        Dim ar_PlaceHolder() As String
+        Dim ar_variable_candidates() As String
+        Dim ar_variables() As String
+        Dim ar_cfset() As String
+
+        Dim flag_vYesNo As String = False
+
+        Dim placeholder As String
+        Dim test As String = "test"
+
+        Dim cf_set_mapTag As String
+        Dim key_name_wMap As String
+        Dim isCfm As Boolean = DTE.ActiveDocument.FullName.EndsWith(".cfm")
+
+        targetString = DTE.ActiveDocument.Selection.Text
+
+        'Getting every plain text with html tag and putting into arrayList
+        matching_vars = re.Matches(targetString, p_textwPound)
+        For i = 0 To matching_vars.Count - 1
+            al_PlaceHolder.Add(Take_Pound_Dot_Out(matching_vars.Item(i).ToString))
+        Next
+
+        'Creating cf_sw_text with mapping variables
+        key_name_wMap = ToDavidCase(targetString) + "_Map"
+        cf_set_mapTag = "<cfset " + key_name_wMap + "= { " + al_PlaceHolder.Item(0).ToString + "=" + matching_vars.Item(0).ToString
+
+        For i = 1 To matching_vars.Count - 1
+            cf_set_mapTag = cf_set_mapTag + ", " + al_PlaceHolder.Item(i).ToString + "=" + matching_vars.Item(i).ToString
+        Next
+        cf_set_mapTag = cf_set_mapTag + " }>"
+        ar_PlaceHolder = CType(al_PlaceHolder.ToArray(GetType(String)), String())
+
+
+
+        Return cf_set_mapTag
+
+
+
+    End Function
+
+    Function Take_Pound_Dot_Out(Optional ByVal s As String = "This is #Test.Test#")
+        Dim result As String
+        Dim o_pattern As String = "#[a-zA-Z0-9._^#]+#"
+        Dim r_pattern As String = "[a-zA-Z0-9_^#]+"
+        result = Replace(s, "#", "")
+        result = Replace(result, "\.", "_")
+        Return result
+    End Function
+
+
+    Function ToDavidCase(ByVal s As String, Optional ByVal keysize As Integer = 4)
+        Dim key As String
+        Dim keyname_candidate As String()
+
+        Dim i As Integer = 0
+        s = s.Trim
+        s = RemoveNonWordCharacters(s)
+        keyname_candidate = Regex.Split(s, "[\s_]+")
+        If keyname_candidate.Length > 8 Then
+            keysize = keyname_candidate.Length / 2
+        End If
+        'Taking the [keysize] numbers of the world and create key in accordance with camel case style variable naming
+        key = keyname_candidate(0).Chars(0).ToString().ToUpper + keyname_candidate(0).Substring(1).ToLower
+        i = 1
+        While (i < keysize And i < keyname_candidate.Length)
+            key = key + "_" + keyname_candidate(i).Chars(0).ToString().ToUpper + keyname_candidate(i).Substring(1).ToLower
+            i = i + 1
+        End While
+
+        Return key
+    End Function
+
+    Function RemoveNonWordCharacters(ByVal s As String)
+        Dim pattern As String = ":"
+        Dim replacement As String = "_Colon"
+        Dim rgx As New Regex(pattern)
+        Dim result As String = rgx.Replace(s, replacement)
+        s = result
+
+        pattern = "[^\w^\s]"
+        replacement = ""
+        Dim rgx2 As New Regex(pattern)
+        result = rgx2.Replace(s, replacement)
+        Return result
+    End Function
+
+    Sub propsFileToAlphabetical()
+        DTE.ActiveDocument.Selection.StartOfDocument()
+        DTE.ActiveDocument.Selection.EndOfDocument(True)
+
+        Dim allProps As String = DTE.ActiveDocument.Selection.Text
+        Dim arg() As String = {vbCrLf, vbLf}
+
+        Dim props() As String = allProps.Split(arg, StringSplitOptions.None)
+
+        System.Array.Sort(Of String)(props)
+
+        DTE.UndoContext.Open("Sort Props")
+        DTE.ActiveDocument.Selection.Delete()
+
+        For Each prop As String In props
+            DTE.ActiveDocument.Selection.Insert(prop)
+            DTE.ActiveDocument.Selection.NewLine()
+        Next
+
+        DTE.UndoContext.Close()
+    End Sub
+
+    Function readPropsFile(ByVal filePath As String) As List(Of String())
+        Dim file As System.IO.File
+        Dim reader As System.IO.StreamReader
+        Dim line As String
+        Dim results As New List(Of String())
+
+        reader = file.OpenText(filePath)
+
+        While reader.Peek <> -1
+            line = reader.ReadLine()
+            If Not line.Equals("") Then
+                results.Add(line.Split("="))
+            End If
+        End While
+
+        reader.Close()
+
+        Return results
+
+    End Function
+
+    Function readResxFile(ByVal filePath As String)
+        Dim result As New List(Of String())
+        Dim reader As New ResXResourceReader(filePath)
+        reader.UseResXDataNodes = True
+
+        Dim en As IDictionaryEnumerator
+        en = reader.GetEnumerator()
+        Dim blank As System.ComponentModel.Design.ITypeResolutionService
+        blank = Nothing
+
+        While en.MoveNext()
+            Dim entry As ResXDataNode = en.Value
+
+            Dim node(2) As String
+            node(0) = en.Key
+            node(1) = entry.GetValue(blank)
+            node(2) = entry.Comment
+            result.Add(node)
+        End While
+
+        Return result
+    End Function
+
+    Function findResourcesKey(ByVal filePath As String)
+        Dim file As System.IO.File
+        Dim reader As System.IO.StreamReader
+        Dim line As String
+        Dim results As String = ""
+
+        Dim pattern As String = "\s*<cf_sw_UseResource key="""
+        Dim rgx As New Regex(pattern, RegexOptions.IgnoreCase)
+
+        Dim endPattern As String = """\s*>"
+        Dim endRgx As New Regex(endPattern)
+
+        reader = file.OpenText(filePath)
+
+        While reader.Peek <> -1
+            line = reader.ReadLine()
+            If rgx.IsMatch(line) Then
+                results = rgx.Replace(line, "")
+                results = endRgx.Replace(results, "")
+                Exit While
+            End If
+        End While
+
+        reader.Close()
+
+        Return results
+
+    End Function
+
+End Module

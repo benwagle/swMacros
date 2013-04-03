@@ -1,0 +1,164 @@
+'Version 1.0
+'How to use
+'Open Properties file and CFM files that are using this properties file
+'Ex. Open test.properties and all CFM Files that are using test.properties file
+'Highlight the Key inside of propertites file and run the Macro
+'Enter the new key inside of popup input box
+'It would change every test.test.oldkey to test.test.newkey
+'File name and folder name is derived from the current properties file name
+
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Text.RegularExpressions
+
+Public Module Key_Change
+    Sub Global_Key_changeer()
+        Dim current_key As String
+        Dim new_key As String
+        Dim new_key_full_name As String
+        Dim Full_Path As String()
+        Dim Folder_Name As String
+        Dim Current_Folder As String ' = Under Resource Folder
+        Dim current_key_full_name As String
+
+        Dim propsWindowName As String '= "Home.properties" 'Change per props file
+        Dim propsFileName As String
+        Dim propsFilePath As String = "C:\Source\trunk\sw\swchannel\Resources\"
+        Dim dotProperties As String = ".properties"
+        Dim useResourcesKey As String
+        Dim resourcekey As String()
+
+        ' Current Folder Name : First Component of Key
+        current_key = DTE.ActiveDocument.Selection.Text
+        new_key = InputBox("Enter your key name", "Input Required", current_key)
+        Folder_Name = DTE.ActiveDocument.Path
+        Full_Path = Folder_Name.Split("\")
+        For i = Full_Path.Length - 1 To 1 Step -1
+            If "".IsNullOrWhiteSpace(Full_Path(i)) = False Then
+                Current_Folder = Full_Path(i)
+                Exit For
+            End If
+        Next
+
+        ' Current Properties File Name : Second Component of Key
+        If "".IsNullOrWhiteSpace(DTE.ActiveDocument.Name.Split(".")(0)) = False Then
+            propsFileName = DTE.ActiveDocument.Name.Split(".")(0)
+        End If
+
+        
+
+        'Error Handling For Not Exsiting Folde and File Name
+        If "".IsNullOrWhiteSpace(Current_Folder) Or "".IsNullOrWhiteSpace(propsFileName) Or "".IsNullOrWhiteSpace(new_key) Then
+            MsgBox("Failed To Find Full Key Name")
+            Exit Sub
+        End If
+
+        'Replace in Properties File
+        DTE.ActiveDocument.Selection.Insert(new_key)
+
+        'Replace in CFM Files
+        new_key_full_name = Current_Folder + "." + propsFileName + "." + new_key
+        current_key_full_name = Current_Folder + "." + propsFileName + "." + current_key
+
+        DTE.ExecuteCommand("Edit.Replace")
+        DTE.Find.Action = vsFindAction.vsFindActionReplaceAll
+        DTE.Find.FindWhat = current_key_full_name
+        DTE.Find.ReplaceWith = new_key_full_name
+        DTE.Find.Target = vsFindTarget.vsFindTargetOpenDocuments
+        DTE.Find.MatchCase = False
+        DTE.Find.MatchWholeWord = True
+        DTE.Find.MatchInHiddenText = False
+        DTE.Find.PatternSyntax = vsFindPatternSyntax.vsFindPatternSyntaxLiteral
+        DTE.Find.ResultsLocation = vsFindResultsLocation.vsFindResultsNone
+        If (DTE.Find.Execute() = vsFindResult.vsFindResultNotFound) Then
+            Throw New System.Exception("vsFindResultNotFound")
+        End If
+
+        DTE.Windows.Item("{CF2DDC32-8CAD-11D2-9302-005345000000}").Close()
+
+        DTE.ActiveDocument.Save()
+
+
+    End Sub
+
+    Sub Key_changeer()
+        Dim current_key As String
+        Dim new_key As String
+        Dim propsWindowName As String '= "Home.properties" 'Change per props file
+        Dim propsFileName As String
+        Dim propsFilePath As String = "C:\Source\trunk\sw\swchannel\Resources\"
+        Dim dotProperties As String = ".properties"
+        Dim useResourcesKey As String
+        Dim resourcekey As String()
+
+
+        useResourcesKey = findResourcesKey(DTE.ActiveDocument.FullName)
+        resourcekey = useResourcesKey.Split(".")
+        propsWindowName = resourcekey(1) + dotProperties
+
+        propsFileName = propsFilePath + useResourcesKey.Replace(".", "\").Trim() + dotProperties
+        current_key = DTE.ActiveDocument.Selection.Text
+        new_key = InputBox("Enter your key name", "Input Required", current_key)
+        DTE.ActiveDocument.Selection.Insert(new_key)
+
+        DTE.Windows.Item(Constants.vsWindowKindSolutionExplorer).Activate()
+        DTE.ItemOperations.OpenFile(propsFileName)
+        DTE.Windows.Item(propsWindowName).Activate()
+
+        DTE.ExecuteCommand("Edit.Replace")
+        DTE.Find.Action = vsFindAction.vsFindActionReplaceAll
+        DTE.Find.FindWhat = current_key
+        DTE.Find.ReplaceWith = new_key
+        DTE.Find.Target = vsFindTarget.vsFindTargetCurrentDocument
+        DTE.Find.MatchCase = False
+        DTE.Find.MatchWholeWord = True
+        DTE.Find.MatchInHiddenText = False
+        DTE.Find.PatternSyntax = vsFindPatternSyntax.vsFindPatternSyntaxLiteral
+        DTE.Find.ResultsLocation = vsFindResultsLocation.vsFindResultsNone
+        If (DTE.Find.Execute() = vsFindResult.vsFindResultNotFound) Then
+            Throw New System.Exception("vsFindResultNotFound")
+        End If
+
+        DTE.Windows.Item("{CF2DDC32-8CAD-11D2-9302-005345000000}").Close()
+
+        DTE.ExecuteCommand("File.SaveAll")
+
+    End Sub
+
+
+    Function findResourcesKey(ByVal filePath As String)
+        Dim file As System.IO.File
+        Dim reader As System.IO.StreamReader
+        Dim line As String
+        Dim results As String = ""
+
+        Dim pattern As String = "\s*<cf_sw_UseResource key="""
+        Dim rgx As New Regex(pattern, RegexOptions.IgnoreCase)
+
+        Dim endPattern As String = """\s*>"
+        Dim endRgx As New Regex(endPattern)
+
+        reader = file.OpenText(filePath)
+
+        While reader.Peek <> -1
+            line = reader.ReadLine()
+            If rgx.IsMatch(line) Then
+                results = rgx.Replace(line, "")
+                results = endRgx.Replace(results, "")
+                Exit While
+            End If
+        End While
+
+        reader.Close()
+
+        Return results
+
+    End Function
+
+
+End Module

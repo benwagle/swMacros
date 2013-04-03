@@ -1,0 +1,39 @@
+Sub Open_With_Notepad_Plus()
+    Dim s As String
+    Dim folder As String
+    Path = "C:\Source\trunk\SW\swchannel\"
+    current_path = Range("B1").Value
+    folder = Path + current_path
+    s = ActiveCell.Value
+    RetVal = Shell("C:\Program Files (x86)\Notepad++\notepad++.exe " + folder + s, 1)
+End Sub
+
+Sub Open_With_Chrome()
+    Dim s As String
+    Dim folder As String
+    Path = "localhost\SW\swchannel\"
+    current_path = Range("B1").Value
+    folder = Path + current_path
+    s = ActiveCell.Value
+    RetVal = Shell("C:\Users\dhwang\AppData\Local\Google\Chrome\Application\chrome.exe " + folder + s, 1)
+End Sub
+
+Sub Open_With_IE()
+    Dim s As String
+    Dim folder As String
+    Path = "localhost\SW\swchannel\"
+    current_path = Range("B1").Value
+    folder = Path + current_path
+    s = ActiveCell.Value
+    RetVal = Shell("C:\Program Files (x86)\Internet Explorer\iexplore.exe " + folder + s, 1)
+End Sub
+
+Sub Open_With_VS()
+    Dim s As String
+    Dim folder As String
+    Path = "C:\Source\trunk\SW\swchannel\"
+    current_path = Range("B1").Value
+    folder = Path + current_path
+    s = ActiveCell.Value
+    RetVal = Shell("C:\Program Files (x86)\Microsoft Visual Studio 10.0\Common7\IDE\devenv.exe " + folder + s, 1)
+End Sub

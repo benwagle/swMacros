@@ -1,0 +1,186 @@
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Collections.Generic
+Imports System.Text.RegularExpressions
+Imports System.Windows.Forms
+Imports System.Globalization
+Imports System.Collections
+Imports System.Resources
+Imports System.IO.Stream
+Imports System.Windows.Input ' Keyboard
+
+Public Module ResourceKey
+
+    Dim source_location As String = "C:\Source\trunk\sw\swchannel\Resources\"
+    'Dim source_location As String = "F:\GitSource\sw\swchannel\Resources\"
+    Sub Resource_Key_Selector()
+
+        
+        Const msoFileDialogOpen = 1
+
+        Dim fso = CreateObject("Scripting.FileSystemObject")
+        Dim objWord = CreateObject("Word.Application")
+        Dim WshShell = CreateObject("WScript.Shell")
+        Dim oFSO = CreateObject("Scripting.FileSystemObject")
+
+        Dim folder_name As String
+        Dim file_name As String
+        Dim useRsrcKeyTag As String
+
+        Dim ActiveDirectory = DTE.ActiveDocument.Path
+        Dim Directories() As String
+        Dim i As Integer
+        WshShell = CreateObject("WScript.Shell")
+
+        Directories = ActiveDirectory.Split("\")
+        For i = 0 To Directories.Length - 1
+            If Directories(i) = "swchannel" Then
+                Exit For
+            End If
+        Next
+        folder_name = Directories(i + 1)
+
+        Dim strInitialPath = source_location + folder_name
+
+        'set the dialog box to open at the desired folder
+
+
+        ' Create a new folder, if it doesn't exist
+        If Not oFSO.FolderExists(strInitialPath) Then
+            oFSO.CreateFolder(strInitialPath)
+        End If
+
+        objWord.ChangeFileOpenDirectory(strInitialPath)
+
+        With objWord.FileDialog(msoFileDialogOpen)
+
+            'set the window title to whatever you want
+            .Title = "Select the file to process"
+            'I changed this to false because I'm working with one file at a time
+            .AllowMultiSelect = False
+            'Get rid of any existing filters
+            .Filters.Clear()
+            'Show only the desired file types
+            'for each desired group of file types, add a "Filters.Add" line with a different description and desired extensions
+            'the dialog box will open using whichever filter is first
+            'you can switch to a different filter from a drop-down list on the dialog box
+            .Filters.Add("Properties Files", "*.properties")
+            .Filters.Add("All Files", "*.*")
+            .Filters.Add("Excel Files", "*.xls;*.xlsx")
+            .Filters.Add("Text Files", "*.txt")
+            .Filters.Add("Various Files", "*.xls;*.doc;*.vbs")
+
+            '-1 = Open the file
+            ' 0 = Cancel the dialog box
+            '-2 = Close the dialog box
+            'If objWord.FileDialog(msoFileDialogOpen).Show = -1 Then  'long form
+
+            If .Show = -1 Then  'short form
+                'Set how you want the dialog window to appear
+                'it doesn't appear to do anything so it's commented out for now
+                '0 = Normal
+                '1 = Maximize
+                '2 = Minimize
+                'objWord.WindowState = 2
+
+                'the Word dialog must be a collection object
+                'even though I'm using one file, I had to use a For/Next loop
+                '"File" returns a string containing the full path of the selected file
+
+                'For Each File in objWord.FileDialog(msoFileDialogOpen).SelectedItems  'long form
+                For Each File In .SelectedItems  'short form
+                    'Change the Word dialog object to a file object for easier manipulation
+                    Dim objFile = fso.GetFile(File)
+                    'Display the full path to the file
+                    'Display the path to the folder that the file is in
+                    ' MsgBox(objFile.ParentFolder)
+                    'Display just the name of the file
+                    file_name = objFile.Name.ToString.Split(".")(0)
+                    Exit For
+                    objFile.close()
+                Next
+            Else
+            End If
+
+        End With
+
+        If Not "".IsNullOrEmpty(folder_name) And Not "".IsNullOrEmpty(file_name) Then
+            useRsrcKeyTag = "<cf_sw_UseResource key=" + """" + folder_name + "." + file_name + """>"
+            DTE.ActiveDocument.Selection.StartOfDocument()
+            DTE.ActiveDocument.Selection.Insert(useRsrcKeyTag)
+            DTE.ActiveDocument.Selection.NewLine()
+        End If
+
+
+
+
+        'Close Word
+
+        objWord.Quit()
+    End Sub
+
+    Sub Properties_Creator()
+        Const msoFileDialogOpen = 1
+
+        Dim fso = CreateObject("Scripting.FileSystemObject")
+        Dim objWord = CreateObject("Word.Application")
+        Dim WshShell = CreateObject("WScript.Shell")
+        Dim oFSO = CreateObject("Scripting.FileSystemObject")
+
+        Dim folder_name As String
+        Dim file_name As String
+        Dim useRsrcKeyTag As String
+        'where you want to start looking for files
+        'You could use a string like "C:\Somefolder\Somefolder\"
+        'I chose to use the desktop folder of whoever was running the script.  On Windows 7 it's "C:\Users\Username\Desktop\"
+        'Run "set" from a command prompt to see the available environment variables
+        Dim ActiveDirectory = DTE.ActiveDocument.Path
+        Dim Directories() As String
+        Dim i As Integer
+        Directories = ActiveDirectory.Split("\")
+        For i = 0 To Directories.Length - 1
+            If Directories(i) = "swchannel" Then
+                Exit For
+            End If
+        Next
+        folder_name = Directories(i + 1)
+
+        Dim strInitialPath = source_location + folder_name
+
+        'set the dialog box to open at the desired folder
+
+
+        ' Create a new folder
+        If Not oFSO.FolderExists(strInitialPath) Then
+            oFSO.CreateFolder(strInitialPath)
+        End If
+
+        file_name = InputBox("Enter File Name", folder_name)
+
+        Dim objFSO 'As FileSystemObject
+        objFSO = CreateObject("Scripting.FileSystemObject")
+        Dim strFile As String
+        Dim objTextFile 'As Object
+        Dim blnOverwrite 'As Boolean
+        blnOverwrite = False
+        strFile = file_name + ".properties"
+        If Not oFSO.FileExists(strInitialPath & "\" & strFile) And Not "".IsNullOrEmpty(file_name) Then
+            objTextFile = objFSO.CreateTextFile(strInitialPath & "\" & strFile, blnOverwrite)
+            objTextFile.close()
+        End If
+
+
+        If Not "".IsNullOrEmpty(folder_name) And Not "".IsNullOrEmpty(file_name) Then
+            useRsrcKeyTag = "<cf_sw_UseResource key=" + """" + folder_name + "." + file_name + """>"
+            DTE.ActiveDocument.Selection.StartOfDocument()
+            DTE.ActiveDocument.Selection.Insert(useRsrcKeyTag)
+            DTE.ActiveDocument.Selection.NewLine()
+        End If
+    End Sub
+
+End Module

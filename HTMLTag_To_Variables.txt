@@ -1,0 +1,265 @@
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Collections.Generic
+Imports System.Text.RegularExpressions
+Imports System.Windows.Forms
+Imports System.Globalization
+Imports System.Collections
+Imports System.Resources
+Imports System.Text.RegularExpressions.Regex
+
+
+Public Module NewExpe
+    Dim cut As String
+    Dim pattern As String = "</?\w+\s+[^>]*>|<[A-Za-z][A-Za-z0-9]*>|</[A-Za-z][A-Za-z0-9]*>*"
+
+
+    Sub Tag_Detector_Regex()
+        cut = DTE.ActiveDocument.Selection.Text
+        Dim Scan() As String = Regex.Split(cut, pattern)
+        Dim re As New Regex("[A-Za-z0-9]")
+        Dim re_comment As New Regex("[<][!][-+]")
+        Dim re_variable As New Regex("#\w+#")
+        Dim re_keyword As New Regex("selected\b|checked\b")
+        Dim re_cfquery As New Regex("<cfquery[\w+\s+][^>]*>[\w\s]+</cfquery>")
+
+        Dim Filter As New ArrayList
+        Dim plain_wVariable As New ArrayList
+        Dim keyword As New ArrayList
+
+
+        Dim Filter_A() As String
+        Dim plain_wVariable_A() As String
+        Dim keyword_A() As String
+
+        Dim m As Boolean
+        Dim s_c As Boolean
+        Dim s_v As Boolean
+        Dim s_k As Boolean
+        Dim s_q As Boolean
+
+        Dim i As Integer = 0
+        Dim j As Integer = 0
+        For i = 0 To Scan.Length - 1
+            m = re.IsMatch(Scan(i)) ' check whether the element has alphanumeric value
+            s_c = re_comment.IsMatch(Scan(i))
+            s_v = re_variable.IsMatch(Scan(i))
+            s_k = re_keyword.IsMatch(Scan(i))
+            s_q = re_cfquery.IsMatch(Scan(i))
+
+            If s_c Then
+                Continue For
+
+            ElseIf s_k Then
+                keyword.Add(Scan(i))
+
+            ElseIf s_v Then
+                plain_wVariable.Add(Scan(i))
+
+            ElseIf m Then
+                Filter.Add(Scan(i))
+            End If
+        Next
+
+        Filter_A = CType(Filter.ToArray(GetType(String)), String())
+        plain_wVariable_A = CType(plain_wVariable.ToArray(GetType(String)), String())
+        keyword_A = CType(keyword.ToArray(GetType(String)), String())
+
+    End Sub
+
+    Sub HtmlTag_To_Variable()
+        Dim p_alphanumeric As New Regex("[A-Za-z0-9]")
+        Dim result As System.Text.RegularExpressions.MatchCollection
+        Dim p_textwTag As String = "</?\w+\s*[^>]*>[\w\s#_%*/\(\)""$\+]+</[A-Za-z][A-Za-z0-9]*>"
+        Dim p_HTMLTag As String = "</?\w+\s*[^>]*>|</[A-Za-z][A-Za-z0-9]*>"
+        Dim p_Char As String = "[\w+]"
+        Dim variable_woTag() As String
+        Dim variable As System.Text.RegularExpressions.MatchCollection
+        Dim re As New Regex(pattern)
+        Dim targetString
+        Dim al_textwTag As New ArrayList
+        Dim al_variable_candidates As New ArrayList
+        Dim al_variables As New ArrayList
+        Dim al_cfset As New ArrayList
+
+        Dim ar_textwTag() As String
+        Dim ar_variable_candidates() As String
+        Dim ar_variables() As String
+        Dim ar_cfset() As String
+
+        Dim flag_vYesNo As String = False
+
+        Dim placeholder As String
+        Dim test As String = "test"
+
+        targetString = DTE.ActiveDocument.Selection.Text
+
+        'Getting every plain text with html tag and putting into arrayList
+        result = re.Matches(targetString, p_textwTag)
+
+
+        Dim r As String = result.Item(0).ToString
+        For i = 0 To result.Count - 1
+            al_textwTag.Add(result.Item(i).ToString)
+            variable_woTag = Regex.Split(al_textwTag(i), p_HTMLTag) 'Take out the html tag nad put into the string array
+
+            'Get the alphanumeric value inside of string array
+            For j = 0 To variable_woTag.Length - 1
+                If (p_alphanumeric.IsMatch(variable_woTag(j))) Then
+                    al_variable_candidates.Add(variable_woTag(j))
+                    flag_vYesNo = True
+                    Exit For
+                End If
+
+            Next
+            If flag_vYesNo = False Then
+                al_variable_candidates.Add("Dummy var")
+            End If
+            flag_vYesNo = False
+
+        Next
+
+
+        'Clear Special Characters from Variable Candidates and put postfix
+        'Get the variable name for each place holder
+        For i = 0 To al_variable_candidates.Count - 1
+            al_variables.Add(RemoveNonWordCharacters(al_variable_candidates(i)) + "_HTMLTag")
+        Next
+
+        'Create cfset tags for replaced text
+        For i = 0 To al_textwTag.Count - 1
+            Dim t_cfset As String = "<cfset " + al_variables(i) + "=" + al_textwTag(i) + """>"
+            al_cfset.Add(t_cfset)
+        Next
+
+
+
+
+        ar_textwTag = CType(al_textwTag.ToArray(GetType(String)), String())
+        ar_variable_candidates = CType(al_variable_candidates.ToArray(GetType(String)), String())
+        ar_variables = CType(al_variables.ToArray(GetType(String)), String())
+        ar_cfset = CType(al_cfset.ToArray(GetType(String)), String())
+
+
+        DTE.ExecuteCommand("Edit.Replace")
+        DTE.Find.Action = vsFindAction.vsFindActionReplaceAll
+
+        DTE.Find.Target = vsFindTarget.vsFindTargetCurrentDocument
+        DTE.Find.MatchCase = False
+        DTE.Find.MatchWholeWord = True
+        DTE.Find.MatchInHiddenText = False
+        DTE.Find.PatternSyntax = vsFindPatternSyntax.vsFindPatternSyntaxLiteral
+        DTE.Find.ResultsLocation = vsFindResultsLocation.vsFindResultsNone
+
+        For i = 0 To ar_textwTag.Length - 1
+            DTE.Find.FindWhat = ar_textwTag(i)
+            DTE.Find.ReplaceWith = "#" + ar_variables(i) + "#"
+            If (DTE.Find.Execute() = vsFindResult.vsFindResultNotFound) Then
+                Throw New System.Exception("vsFindResultNotFound")
+            End If
+        Next
+
+
+
+
+
+        DTE.Windows.Item("{CF2DDC32-8CAD-11D2-9302-005345000000}").Close()
+
+
+        '    variable = re.Matches(variable_wTag(1), p_Char)
+        'For i = 0 To variable.Count - 1
+        'variable_s = variable_s + variable.Item(i).ToString
+        ' Next
+
+
+        ' Declare an object for the word application '
+        Dim objWord As Object = CreateObject("Word.Application")
+        Dim cfsets As String
+
+        For i = 0 To ar_cfset.Length - 1
+            cfsets = cfsets + ar_cfset(i) + vbCrLf
+        Next
+
+        ' Using the object '
+        With objWord
+            .Visible = False         ' Don't show word '
+            .Documents.Add()           ' Create a document '
+            .Selection.TypeText(cfsets)   ' Put text into it '
+            .Selection.WholeStory()        ' Select everything in the doc '
+            .Selection.Copy()          ' Copy contents to clipboard '
+            .Quit(False)          ' Close Word, don't save ' 
+        End With
+
+
+
+    End Sub
+
+
+    Function RemoveNonWordCharacters(ByVal s As String)
+        Dim pattern As String = ":"
+        Dim replacement As String = "_Colon"
+        Dim rgx As New Regex(pattern)
+        Dim result As String = rgx.Replace(s, replacement)
+        s = result
+
+        pattern = "[^\w]"
+        replacement = ""
+        Dim rgx2 As New Regex(pattern)
+        result = rgx2.Replace(s, replacement)
+        Return result
+    End Function
+
+
+    Sub Key_Generate()
+
+
+    End Sub
+
+
+    Sub Clip_Board_Test()
+
+        Dim strMessage As String = "Imagine that, it works!"
+
+        ' Declare an object for the word application '
+        Dim objWord As Object = CreateObject("Word.Application")
+
+        ' Using the object '
+        With objWord
+            .Visible = False         ' Don't show word '
+            .Documents.Add()           ' Create a document '
+            .Selection.TypeText(strMessage)   ' Put text into it '
+            .Selection.WholeStory()        ' Select everything in the doc '
+            .Selection.Copy()          ' Copy contents to clipboard '
+            .Quit(False)          ' Close Word, don't save ' 
+        End With
+    End Sub
+
+
+    Sub Find_Select()
+        Dim objFSO As Object
+        Dim objFile As Object
+        Dim strText As String
+        Dim strNewText As String
+        Const ForReading = 1
+        Const ForWriting = 2
+
+        objFSO = CreateObject("Scripting.FileSystemObject")
+        objFile = objFSO.OpenTextFile("C:\Users\dhwang\Downloads\test.txt", ForReading)
+        strText = objFile.ReadAll
+        objFile.Close()
+        strNewText = Replace(strText, "span", "replace")
+
+        objFile = objFSO.OpenTextFile("C:\Users\dhwang\Downloads\test.txt", ForWriting)
+        objFile.WriteLine(strNewText)
+        objFile.Close()
+    End Sub
+
+
+
+
+End Module

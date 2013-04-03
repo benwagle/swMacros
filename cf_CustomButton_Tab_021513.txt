@@ -1,0 +1,280 @@
+Imports System
+Imports EnvDTE
+Imports EnvDTE80
+Imports EnvDTE90
+Imports EnvDTE90a
+Imports EnvDTE100
+Imports System.Diagnostics
+Imports System.Collections.Generic
+Imports System.Text.RegularExpressions
+Imports System.Windows.Forms
+Imports System.Globalization
+Imports System.Collections
+Imports System.Resources
+Imports System.Text.RegularExpressions.Regex
+
+
+Public Module cf_CustomButton_Tab
+    Dim cut As String
+    'Pattern for CustomButton and CustomTab 
+    Dim p_CFBUtton As String = "<(cf_CustomButton|cf_CustomTab)\s+(\w+=""[#\w.\s&=?:\(\);',]*""\s*)+>"
+    'Pattern for ButtonText, AltText, and TabName. Ignore Empty value
+    Dim p_ButtonText As String = "(ButtonText|AltText|TabName)=""[\w\s]+"""
+
+    Dim propsFilePath As String = "C:\Source\trunk\sw\swchannel\Resources\"
+    Dim useResourcesKey = findResourcesKey(DTE.ActiveDocument.FullName)
+    Dim dotProperties As String = ".properties"
+    Dim propsWindowName As String = useResourcesKey.split(".")(1) + dotProperties
+    Dim cfmsWindowName As String = DTE.ActiveDocument.Name.ToString
+    Dim propsFileName = propsFilePath + useResourcesKey.Replace(".", "\").Trim() + dotProperties
+    Dim startingPoint As Object = DTE.ActiveDocument.Selection.AnchorPoint
+    Dim isCfm As Boolean = DTE.ActiveDocument.FullName.EndsWith(".cfm")
+
+
+    Sub CF_Button_Tab()
+
+        cut = DTE.ActiveDocument.Selection.Text
+
+        Dim re_CFButton As New Regex(p_CFBUtton)
+        Dim re_ButtonText As New Regex(p_ButtonText)
+
+        Dim result As System.Text.RegularExpressions.MatchCollection
+        Dim result_ButtonText_AltText_Tabname As System.Text.RegularExpressions.MatchCollection
+
+        Dim al_CFButton_Text As New ArrayList
+        Dim ar_CFButton_Text() As String
+        Dim ar_CFButton_Key() As String
+        Dim al_Button_Text As New ArrayList
+        Dim ar_Button_Text() As String
+        Dim ar_Button_Key() As String
+
+        'Variables for building the key statement
+        Dim List_Identifier_Plaintext() As String
+        Dim Identifier As String
+        Dim Plain_Text As String
+        Dim Key As String
+        Dim Complete_Key As String
+
+
+
+        'Look for CF Custom Button or CF Custom Tab
+        result = re_CFButton.Matches(cut, p_CFBUtton)
+        For i = 0 To result.Count - 1
+            al_CFButton_Text.Add(result.Item(i).ToString)
+        Next
+        ar_CFButton_Text = CType(al_CFButton_Text.ToArray(GetType(String)), String())
+
+        'ar_CFBUTTON_Text contains entire Custom Tag String
+        'This loop find ButtonText, TabName, and AltText and replace with keys in memory
+        'ar_CFButton_Key would eventually have new CustomTag Strings
+        'i represent each CustomButton or CustomTab
+        ReDim ar_CFButton_Key(ar_CFButton_Text.Length - 1)
+        For i = 0 To ar_CFButton_Text.Length - 1
+            result_ButtonText_AltText_Tabname = re_ButtonText.Matches(ar_CFButton_Text(i))
+            Dim temp_CFCustomButton_Tab As String = ar_CFButton_Text(i)
+
+            'Inside of each Custom Button or Tab, this loop replace ButtonText, TabName, and AltText and replace with keys in memory
+            'The purpose of this loop is to replace every relavant keyword in side of one cf button or tab tag.
+            'Ex) One CustomButton would have two relavant keyword such as ButtonText and AltText
+            'After completing, it would store in ar_CFButton_Key(i)
+            For j = 0 To result_ButtonText_AltText_Tabname.Count - 1
+                List_Identifier_Plaintext = result_ButtonText_AltText_Tabname.Item(j).ToString.Split("=")
+                If Not "".IsNullOrEmpty(List_Identifier_Plaintext(1)) Then
+                    Identifier = List_Identifier_Plaintext(0)
+                    Plain_Text = List_Identifier_Plaintext(1).Trim("""")
+                    Key = ToDavidCase(Plain_Text)
+                Else
+                    Continue For
+                End If
+
+
+                If Identifier = "ButtonText" Then
+                    Complete_Key = "Key=""" + useResourcesKey + "." + Key + """"
+                    temp_CFCustomButton_Tab = temp_CFCustomButton_Tab.Replace(result_ButtonText_AltText_Tabname.Item(j).ToString, Complete_Key)
+
+                ElseIf Identifier = "AltText" Then
+                    Complete_Key = "AltKey=""" + useResourcesKey + "." + Key + """"
+                    temp_CFCustomButton_Tab = temp_CFCustomButton_Tab.Replace(result_ButtonText_AltText_Tabname.Item(j).ToString, Complete_Key)
+
+                ElseIf Identifier = "TabName" Then
+                    Complete_Key = "TabKey=""" + useResourcesKey + "." + Key + """"
+                    temp_CFCustomButton_Tab = temp_CFCustomButton_Tab.Replace(result_ButtonText_AltText_Tabname.Item(j).ToString, Complete_Key)
+
+                End If
+            Next
+            ar_CFButton_Key(i) = temp_CFCustomButton_Tab
+        Next
+
+
+        'Replace Old cf_CustomButton or Tab with New having keys
+        DTE.ExecuteCommand("Edit.Replace")
+        DTE.Find.Action = vsFindAction.vsFindActionReplaceAll
+
+        DTE.Find.Target = vsFindTarget.vsFindTargetCurrentDocumentSelection
+        DTE.Find.MatchCase = False
+        DTE.Find.MatchWholeWord = True
+        DTE.Find.MatchInHiddenText = False
+        DTE.Find.PatternSyntax = vsFindPatternSyntax.vsFindPatternSyntaxLiteral
+        DTE.Find.ResultsLocation = vsFindResultsLocation.vsFindResultsNone
+
+        For i = 0 To ar_CFButton_Text.Length - 1
+            DTE.Find.FindWhat = ar_CFButton_Text(i)
+            DTE.Find.ReplaceWith = ar_CFButton_Key(i)
+            If (DTE.Find.Execute() = vsFindResult.vsFindResultNotFound) Then
+                Throw New System.Exception("vsFindResultNotFound")
+            End If
+        Next
+
+        'Closing Replace Dialog
+        DTE.Windows.Item("{CF2DDC32-8CAD-11D2-9302-005345000000}").Close()
+    End Sub
+
+    Function ToDavidCase(Optional ByVal value As String = "This is Long Test String, I am ", Optional ByVal keysize As Integer = 4)
+        Dim key As String
+        Dim keyname_candidate As String()
+        Dim propsFile As List(Of String())
+        Dim i As Integer = 0
+        Dim f_Collision As Integer = 0
+        Dim s = value
+        propsFile = readPropsFile(propsFileName)
+        s = s.Trim
+        s = RemoveNonWordCharacters(s)
+        keyname_candidate = Regex.Split(s, "[\s_]+")
+
+        Do
+            key = Generate_Key(keyname_candidate, keysize)
+            f_Collision = isColision(propsFile, key, value)
+            If keysize < keyname_candidate.Length And f_Collision = 1 Then
+                keysize = keysize + 1
+            ElseIf f_Collision = 1 Then
+                key = key + "_" + Int(Rnd() * 10000000).ToString
+                f_Collision = 0
+                Exit Do
+            End If
+        Loop While f_Collision = 1
+
+        If f_Collision = 0 Then
+            Write_Properties_File(key, value)
+        End If
+
+        Return key
+    End Function
+
+    Sub Write_Properties_File(ByVal key As String, ByVal value As String)
+        DTE.Windows.Item(Constants.vsWindowKindSolutionExplorer).Activate()
+
+        If (isCfm) Then
+            DTE.ItemOperations.OpenFile(propsFileName)
+            DTE.Windows.Item(propsWindowName).Activate()
+            DTE.ActiveDocument.Selection.EndOfDocument()
+            DTE.ActiveDocument.Selection.NewLine()
+        End If
+
+        If (isCfm) Then
+            DTE.ActiveDocument.Selection.Insert(key + "=" + value)
+            DTE.ActiveDocument.Save()
+            DTE.Windows.Item(cfmsWindowName).Activate()
+
+
+
+        End If
+
+    End Sub
+
+    Function Generate_Key(ByVal keyname_candidate() As String, ByVal keysize As Integer)
+        'Taking the [keysize] numbers of the world and create key in accordance with camel case style variable naming
+        Dim key As String
+        Dim i As Integer
+        key = keyname_candidate(0).Chars(0).ToString().ToUpper + keyname_candidate(0).Substring(1).ToLower
+        i = 1
+        While (i < keysize And i < keyname_candidate.Length)
+            key = key + "_" + keyname_candidate(i).Chars(0).ToString().ToUpper + keyname_candidate(i).Substring(1).ToLower
+            i = i + 1
+        End While
+        Return key
+    End Function
+
+
+    Function isColision(ByRef PropsFile As List(Of String()), Optional ByVal key As String = "To_Create_A_New_Form_Click", Optional ByVal value As String = "To create a new form click on the Add New button below.")
+
+        For Each prop As Object In PropsFile
+            If ((isCfm And prop.Length = 2) Or (Not isCfm And prop.Length = 3)) Then
+                If (prop(0).ToLower().Equals(key.ToLower())) And (prop(1).Equals(value)) Then
+                    Return -1 'Key, Value Pair exist in properties file
+                ElseIf (prop(0).ToLower().Equals(key.ToLower())) And Not (prop(1).Equals(value)) Then
+                    Return 1 'Key exist, however value doesn't match : Key Collision
+                End If
+
+
+            End If
+        Next
+        Return 0 ' No collision
+    End Function
+
+
+    Function readPropsFile(ByVal filePath As String) As List(Of String())
+        Dim file As System.IO.File
+        Dim reader As System.IO.StreamReader
+        Dim line As String
+        Dim results As New List(Of String())
+
+        reader = file.OpenText(filePath)
+
+        While reader.Peek <> -1
+            line = reader.ReadLine()
+            If Not line.Equals("") Then
+                results.Add(line.Split("="))
+            End If
+        End While
+
+        reader.Close()
+
+        Return results
+
+    End Function
+
+
+
+    Function RemoveNonWordCharacters(ByVal s As String)
+        Dim pattern As String = ":"
+        Dim replacement As String = "_Colon"
+        Dim rgx As New Regex(pattern)
+        Dim result As String = rgx.Replace(s, replacement)
+        s = result
+
+        pattern = "[^\w^\s]"
+        replacement = ""
+        Dim rgx2 As New Regex(pattern)
+        result = rgx2.Replace(s, replacement)
+        Return result
+    End Function
+
+    Function findResourcesKey(ByVal filePath As String)
+        Dim file As System.IO.File
+        Dim reader As System.IO.StreamReader
+        Dim line As String
+        Dim results As String = ""
+
+        Dim pattern As String = "\s*<cf_sw_UseResource key="""
+        Dim rgx As New Regex(pattern, RegexOptions.IgnoreCase)
+
+        Dim endPattern As String = """\s*>"
+        Dim endRgx As New Regex(endPattern)
+
+        reader = file.OpenText(filePath)
+
+        While reader.Peek <> -1
+            line = reader.ReadLine()
+            If rgx.IsMatch(line) Then
+                results = rgx.Replace(line, "")
+                results = endRgx.Replace(results, "")
+                Exit While
+            End If
+        End While
+
+        reader.Close()
+
+        Return results
+
+    End Function
+End Module
